@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"log"
 
 	"github.com/joho/godotenv"
@@ -20,14 +19,16 @@ func main() {
 		log.Fatalf("loading config: %v", err)
 	}
 
-	ctx := context.Background()
-	pool, err := db.NewPool(ctx, cfg.DatabaseURL)
+	conn, err := db.Connect(cfg.DatabaseURL)
 	if err != nil {
 		log.Fatalf("connecting to database: %v", err)
 	}
-	defer pool.Close()
-
 	log.Println("connected to database successfully")
+
+	if err := db.AutoMigrate(conn); err != nil {
+		log.Fatalf("running automigrate: %v", err)
+	}
+	log.Println("schema migrated successfully")
 
 	// The chi router / HTTP server is added in Day 2 once the API endpoints exist.
 }

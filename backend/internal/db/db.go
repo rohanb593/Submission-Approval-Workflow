@@ -1,26 +1,37 @@
-// Package db manages the Postgres connection pool.
+// Package db manages the GORM connection to Postgres.
 package db
 
 import (
-	"context"
 	"fmt"
 
-	"github.com/jackc/pgx/v5/pgxpool"
+	"gorm.io/driver/postgres"
+	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
+
+	"github.com/rohanb2005uk/submission-approval-workflow/backend/internal/models"
 )
 
-// NewPool opens a pgx connection pool and verifies connectivity with a ping
-// before returning, so callers fail fast on a bad DATABASE_URL instead of
-// discovering it on the first query.
-func NewPool(ctx context.Context, databaseURL string) (*pgxpool.Pool, error) {
-	pool, err := pgxpool.New(ctx, databaseURL)
+// Connect opens a GORM connection to Postgres.
+func Connect(databaseURL string) (*gorm.DB, error) {
+	db, err := gorm.Open(postgres.Open(databaseURL), &gorm.Config{
+		Logger: logger.Default.LogMode(logger.Warn),
+	})
 	if err != nil {
-		return nil, fmt.Errorf("creating pgx pool: %w", err)
+		return nil, fmt.Errorf("opening gorm connection: %w", err)
 	}
 
-	if err := pool.Ping(ctx); err != nil {
-		pool.Close()
+	sqlDB, err := db.DB()
+	if err != nil {
+		return nil, fmt.Errorf("getting underlying sql.DB: %w", err)
+	}
+	if err := sqlDB.Ping(); err != nil {
 		return nil, fmt.Errorf("pinging database: %w", err)
 	}
 
-	return pool, nil
+	return db, nil
+}
+
+// AutoMigrate reconciles the database schema against the model structs.
+func AutoMigrate(db *gorm.DB) error {
+	return db.AutoMigrate(&models.User{}, &models.Application{}, &models.AuditLogEntry{})
 }
