@@ -32,7 +32,7 @@ func main() {
 	}
 	log.Println("schema migrated successfully")
 
-	router := httpapi.NewRouter(conn, cfg.JWTSecret)
+	router := httpapi.NewRouter(conn, cfg.JWTSecret, cfg.CORSOrigin)
 
 	log.Printf("listening on :%s", cfg.Port)
 	if err := http.ListenAndServe(":"+cfg.Port, router); err != nil {

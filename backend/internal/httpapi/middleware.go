@@ -36,6 +36,25 @@ func RequireAuth(secret string) func(http.Handler) http.Handler {
 	}
 }
 
+// CORS allows the frontend (served from a different origin during local
+// development, e.g. localhost:3000 vs the API's localhost:8080) to call this
+// API from the browser. It responds to preflight OPTIONS requests directly
+// rather than passing them on to the router.
+func CORS(allowedOrigin string) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Access-Control-Allow-Origin", allowedOrigin)
+			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+			w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+			if r.Method == http.MethodOptions {
+				w.WriteHeader(http.StatusNoContent)
+				return
+			}
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+
 // RequireRole rejects the request with 403 unless the authenticated actor
 // has the given role. It must run after RequireAuth. Used only for rules
 // that fall outside the state machine itself, such as "only applicants may

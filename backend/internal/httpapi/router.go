@@ -15,8 +15,10 @@ import (
 	"github.com/rohanb2005uk/submission-approval-workflow/backend/internal/workflow"
 )
 
-// NewRouter builds the complete HTTP router for the API.
-func NewRouter(db *gorm.DB, jwtSecret string) http.Handler {
+// NewRouter builds the complete HTTP router for the API. corsOrigin is the
+// single origin (e.g. the frontend's dev server URL) allowed to call this
+// API from a browser.
+func NewRouter(db *gorm.DB, jwtSecret string, corsOrigin string) http.Handler {
 	h := &handlers{
 		db:     db,
 		apps:   applications.New(db),
@@ -26,6 +28,7 @@ func NewRouter(db *gorm.DB, jwtSecret string) http.Handler {
 	r := chi.NewRouter()
 	r.Use(chimiddleware.Logger)
 	r.Use(chimiddleware.Recoverer)
+	r.Use(CORS(corsOrigin))
 
 	r.Get("/healthz", func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
