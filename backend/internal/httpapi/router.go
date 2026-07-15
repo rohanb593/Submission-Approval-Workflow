@@ -38,6 +38,7 @@ func NewRouter(db *gorm.DB, jwtSecret string, corsOrigin string) http.Handler {
 
 	r.Route("/applications", func(r chi.Router) {
 		r.Use(RequireAuth(jwtSecret))
+		r.Use(h.LogActivity)
 
 		r.With(RequireRole(workflow.RoleRequester)).Post("/", h.createApplication)
 		r.Get("/", h.listApplications)
@@ -51,6 +52,14 @@ func NewRouter(db *gorm.DB, jwtSecret string, corsOrigin string) http.Handler {
 			r.Post("/reject", h.transition(workflow.ActionReject))
 			r.Post("/return", h.transition(workflow.ActionReturnForChanges))
 		})
+	})
+
+	r.Route("/activity", func(r chi.Router) {
+		r.Use(RequireAuth(jwtSecret))
+		r.Use(h.LogActivity)
+		r.Use(RequireRole(workflow.RoleAdmin))
+
+		r.Get("/", h.listActivity)
 	})
 
 	return r

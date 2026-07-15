@@ -54,5 +54,10 @@ func AutoMigrate(db *gorm.DB) error {
 	if err := db.Exec(normalizeLegacyRole).Error; err != nil {
 		return fmt.Errorf("normalizing legacy applicant role: %w", err)
 	}
-	return db.AutoMigrate(&models.User{}, &models.Application{}, &models.AuditLogEntry{})
+	return db.AutoMigrate(
+		&models.User{},
+		&models.Application{},
+		&models.AuditLogEntry{},
+		&models.ActivityLogEntry{},
+	)
 }

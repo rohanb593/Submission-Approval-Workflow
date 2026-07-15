@@ -46,3 +46,27 @@ type AuditLogEntry struct {
 func (AuditLogEntry) TableName() string {
 	return "application_audit_log"
 }
+
+// ActivityLogEntry records one authenticated HTTP request, for the
+// admin-only Activity Audit view. Unlike AuditLogEntry (business-level
+// status transitions on an application), this is transport-level: every
+// request an authenticated user makes, regardless of what it touches.
+type ActivityLogEntry struct {
+	ID            uuid.UUID `gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
+	ActorID       uuid.UUID `gorm:"type:uuid;not null;index"`
+	Actor         User      `gorm:"foreignKey:ActorID;references:ID;constraint:OnDelete:RESTRICT"`
+	Method        string    `gorm:"not null"`
+	Path          string    `gorm:"not null"`
+	StatusCode    int       `gorm:"not null"`
+	DurationMs    int64     `gorm:"not null"`
+	Browser       string
+	IPAddress     string
+	UserAgent     string
+	Referer       string
+	ContentLength int64
+	CreatedAt     time.Time `gorm:"index"`
+}
+
+func (ActivityLogEntry) TableName() string {
+	return "activity_log"
+}

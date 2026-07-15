@@ -49,6 +49,23 @@ export interface ApplicationInput {
 
 export type TransitionAction = "submit" | "start-review" | "approve" | "reject" | "return";
 
+export interface ActivityEntry {
+  id: string;
+  actor_id: string;
+  actor_email: string;
+  actor_role: string;
+  method: string;
+  path: string;
+  status_code: number;
+  duration_ms: number;
+  browser: string;
+  ip_address: string;
+  user_agent: string;
+  referer: string;
+  content_length: number;
+  created_at: string;
+}
+
 // ApiError carries the HTTP status and, for 400s from the backend's
 // validation errors, a field -> message map the UI can attach to inputs.
 export class ApiError extends Error {
@@ -133,4 +150,8 @@ export function transitionApplication(
     token,
     body: { comment: comment ?? "" },
   });
+}
+
+export function listActivity(token: string) {
+  return request<ActivityEntry[]>("/activity", { token });
 }

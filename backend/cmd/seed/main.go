@@ -37,7 +37,7 @@ func main() {
 		log.Fatalf("running automigrate: %v", err)
 	}
 
-	for _, table := range []string{"application_audit_log", "applications", "users"} {
+	for _, table := range []string{"activity_log", "application_audit_log", "applications", "users"} {
 		if err := conn.Exec("TRUNCATE TABLE " + table + " CASCADE").Error; err != nil {
 			log.Fatalf("truncating %s: %v", table, err)
 		}

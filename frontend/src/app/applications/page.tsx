@@ -1,22 +1,35 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useAuth } from "@/lib/auth-context";
 import { useRequireRole } from "@/lib/use-require-role";
-import { listApplications, Application, ApiError } from "@/lib/api";
-import { AppHeader } from "@/components/AppHeader";
-import { StatusBadge } from "@/components/StatusBadge";
+import { listApplications, Application, ApiError, Status } from "@/lib/api";
+import { AppShell } from "@/components/AppShell";
+import { PageHeader } from "@/components/PageHeader";
+import { StatCard } from "@/components/StatCard";
+import { FilterChips } from "@/components/FilterChips";
+import { SubmissionTable } from "@/components/SubmissionTable";
 
 type LoadState =
   | { status: "loading" }
   | { status: "error"; message: string }
   | { status: "ready"; applications: Application[] };
 
+const FILTERS: { label: string; value: Status | "" }[] = [
+  { label: "All", value: "" },
+  { label: "Draft", value: "DRAFT" },
+  { label: "Submitted", value: "SUBMITTED" },
+  { label: "Under Review", value: "UNDER_REVIEW" },
+  { label: "Approved", value: "APPROVED" },
+  { label: "Rejected", value: "REJECTED" },
+];
+
 export default function ApplicantDashboard() {
   const user = useRequireRole("requester");
   const { token } = useAuth();
   const [state, setState] = useState<LoadState>({ status: "loading" });
+  const [filter, setFilter] = useState<Status | "">("");
 
   useEffect(() => {
     if (!user || !token) return;
@@ -37,20 +50,52 @@ export default function ApplicantDashboard() {
     };
   }, [user, token]);
 
+  const all = useMemo(
+    () => (state.status === "ready" ? state.applications : []),
+    [state],
+  );
+  const stats = useMemo(
+    () => ({
+      total: all.length,
+      draft: all.filter((a) => a.status === "DRAFT").length,
+      inReview: all.filter((a) => a.status === "SUBMITTED" || a.status === "UNDER_REVIEW").length,
+      approved: all.filter((a) => a.status === "APPROVED").length,
+    }),
+    [all],
+  );
+  const filtered = filter ? all.filter((a) => a.status === filter) : all;
+
   if (!user) return null;
 
   return (
-    <div className="flex flex-1 flex-col">
-      <AppHeader title="My Applications" />
-      <main className="mx-auto w-full max-w-3xl flex-1 px-6 py-8">
-        <div className="mb-6 flex justify-end">
-          <Link
-            href="/applications/new"
-            className="rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-zinc-700 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300"
-          >
-            New Application
-          </Link>
-        </div>
+    <AppShell>
+      <main className="mx-auto w-full max-w-4xl px-8 py-10">
+        <PageHeader
+          eyebrow="Requester Dashboard"
+          title="My Submissions"
+          subtitle="Track the status of applications you've created."
+          action={
+            <Link
+              href="/applications/new"
+              className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-500"
+            >
+              New Application
+            </Link>
+          }
+        />
+
+        {state.status === "ready" && (
+          <div className="mb-8 grid grid-cols-2 gap-4 sm:grid-cols-4">
+            <StatCard label="Total" value={stats.total} accent="zinc" />
+            <StatCard label="Draft" value={stats.draft} accent="amber" />
+            <StatCard label="In Review" value={stats.inReview} accent="indigo" />
+            <StatCard label="Approved" value={stats.approved} accent="green" />
+          </div>
+        )}
+
+        {state.status === "ready" && (
+          <FilterChips options={FILTERS} value={filter} onChange={setFilter} />
+        )}
 
         {state.status === "loading" && (
           <p className="text-sm text-zinc-500 dark:text-zinc-400">Loading applications...</p>
@@ -62,36 +107,18 @@ export default function ApplicantDashboard() {
           </p>
         )}
 
-        {state.status === "ready" && state.applications.length === 0 && (
+        {state.status === "ready" && filtered.length === 0 && (
           <p className="text-sm text-zinc-500 dark:text-zinc-400">
-            You haven&apos;t created any applications yet.
+            {all.length === 0
+              ? "You haven't created any applications yet."
+              : "No applications match this filter."}
           </p>
         )}
 
-        {state.status === "ready" && state.applications.length > 0 && (
-          <ul className="divide-y divide-zinc-200 rounded-lg border border-zinc-200 dark:divide-zinc-800 dark:border-zinc-800">
-            {state.applications.map((app) => (
-              <li key={app.id}>
-                <Link
-                  href={`/applications/${app.id}`}
-                  className="flex items-center justify-between gap-4 px-4 py-3 transition-colors hover:bg-zinc-50 dark:hover:bg-zinc-900"
-                >
-                  <div>
-                    <p className="text-sm font-medium text-zinc-900 dark:text-zinc-50">
-                      {app.title}
-                    </p>
-                    <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                      {app.category}
-                      {app.amount != null ? ` · $${app.amount.toFixed(2)}` : ""}
-                    </p>
-                  </div>
-                  <StatusBadge status={app.status} />
-                </Link>
-              </li>
-            ))}
-          </ul>
+        {state.status === "ready" && filtered.length > 0 && (
+          <SubmissionTable applications={filtered} />
         )}
       </main>
-    </div>
+    </AppShell>
   );
 }

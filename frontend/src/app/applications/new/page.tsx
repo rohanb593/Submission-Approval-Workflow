@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
 import { useRequireRole } from "@/lib/use-require-role";
 import { createApplication, ApplicationInput } from "@/lib/api";
-import { AppHeader } from "@/components/AppHeader";
+import { AppShell } from "@/components/AppShell";
+import { PageHeader } from "@/components/PageHeader";
 import { ApplicationForm } from "@/components/ApplicationForm";
 
 export default function NewApplicationPage() {
@@ -21,17 +22,21 @@ export default function NewApplicationPage() {
   }
 
   return (
-    <div className="flex flex-1 flex-col">
-      <AppHeader title="New Application" />
-      <main className="mx-auto w-full max-w-lg flex-1 px-6 py-8">
+    <AppShell>
+      <main className="mx-auto w-full max-w-lg px-8 py-10">
         <Link
           href="/applications"
           className="mb-6 inline-block text-sm text-zinc-500 hover:underline dark:text-zinc-400"
         >
-          &larr; Back to my applications
+          &larr; Back to my submissions
         </Link>
+        <PageHeader
+          eyebrow="Requester Dashboard"
+          title="New Application"
+          subtitle="Create a draft. You can edit or submit it for review afterward."
+        />
         <ApplicationForm submitLabel="Create Draft" onSubmit={handleSubmit} />
       </main>
-    </div>
+    </AppShell>
   );
 }
