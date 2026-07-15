@@ -19,6 +19,7 @@ function navItemsFor(role: Role): NavItem[] {
     return [
       { label: "All Submissions", href: "/review" },
       { label: "Activity Audit", href: "/activity" },
+      { label: "User Management", href: "/admin/users" },
     ];
   }
   return [{ label: "Review Queue", href: "/review" }];

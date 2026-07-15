@@ -49,6 +49,13 @@ export interface ApplicationInput {
 
 export type TransitionAction = "submit" | "start-review" | "approve" | "reject" | "return";
 
+export interface AdminUser {
+  id: string;
+  email: string;
+  role: Role;
+  created_at: string;
+}
+
 export interface ActivityEntry {
   id: string;
   actor_id: string;
@@ -116,9 +123,16 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
 }
 
 export function login(email: string, password: string) {
-  return request<{ token: string; user: User }>("/auth/login", {
+  return request<{ challenge_id: string }>("/auth/login", {
     method: "POST",
     body: { email, password },
+  });
+}
+
+export function verifyLoginCode(challengeId: string, code: string) {
+  return request<{ token: string; user: User }>("/auth/login/verify", {
+    method: "POST",
+    body: { challenge_id: challengeId, code },
   });
 }
 
@@ -154,4 +168,20 @@ export function transitionApplication(
 
 export function listActivity(token: string) {
   return request<ActivityEntry[]>("/activity", { token });
+}
+
+export function listUsers(token: string) {
+  return request<AdminUser[]>("/admin/users", { token });
+}
+
+export function createUser(token: string, input: { email: string; password: string; role: Role }) {
+  return request<AdminUser>("/admin/users", { method: "POST", token, body: input });
+}
+
+export function updateUserRole(token: string, id: string, role: Role) {
+  return request<AdminUser>(`/admin/users/${id}/role`, { method: "PUT", token, body: { role } });
+}
+
+export function deleteUser(token: string, id: string) {
+  return request<void>(`/admin/users/${id}`, { method: "DELETE", token });
 }

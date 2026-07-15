@@ -16,7 +16,11 @@ interface AuthContextValue {
   // true until the initial localStorage read completes, so pages can avoid
   // flashing a "logged out" state before hydration catches up.
   isLoading: boolean;
-  login: (email: string, password: string) => Promise<api.User>;
+  // Starts login: checks email/password and emails a 2FA code. Returns the
+  // challenge ID to pass to verifyCode; does not establish a session.
+  login: (email: string, password: string) => Promise<string>;
+  // Confirms the emailed code for a pending challenge and establishes the session.
+  verifyCode: (challengeId: string, code: string) => Promise<api.User>;
   logout: () => void;
 }
 
@@ -45,7 +49,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   async function login(email: string, password: string) {
-    const { token, user } = await api.login(email, password);
+    const { challenge_id } = await api.login(email, password);
+    return challenge_id;
+  }
+
+  async function verifyCode(challengeId: string, code: string) {
+    const { token, user } = await api.verifyLoginCode(challengeId, code);
     const next = { token, user };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
     setSession(next);
@@ -64,6 +73,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         token: session?.token ?? null,
         isLoading,
         login,
+        verifyCode,
         logout,
       }}
     >
