@@ -122,8 +122,17 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
   return data as T;
 }
 
+// LoginResult is a union: with 2FA enabled the backend returns only
+// challenge_id (proceed to verifyLoginCode); with 2FA disabled it returns
+// token + user directly, same shape as verifyLoginCode's response.
+export interface LoginResult {
+  challenge_id?: string;
+  token?: string;
+  user?: User;
+}
+
 export function login(email: string, password: string) {
-  return request<{ challenge_id: string }>("/auth/login", {
+  return request<LoginResult>("/auth/login", {
     method: "POST",
     body: { email, password },
   });

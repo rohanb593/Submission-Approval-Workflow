@@ -16,9 +16,14 @@ interface AuthContextValue {
   // true until the initial localStorage read completes, so pages can avoid
   // flashing a "logged out" state before hydration catches up.
   isLoading: boolean;
-  // Starts login: checks email/password and emails a 2FA code. Returns the
-  // challenge ID to pass to verifyCode; does not establish a session.
-  login: (email: string, password: string) => Promise<string>;
+  // Starts login: checks email/password. With 2FA enabled this emails a
+  // code and returns a challengeId to pass to verifyCode; with 2FA disabled
+  // the backend returns a token directly, so this establishes the session
+  // immediately and returns the signed-in user instead.
+  login: (
+    email: string,
+    password: string,
+  ) => Promise<{ challengeId: string; user?: undefined } | { challengeId?: undefined; user: api.User }>;
   // Confirms the emailed code for a pending challenge and establishes the session.
   verifyCode: (challengeId: string, code: string) => Promise<api.User>;
   logout: () => void;
@@ -49,8 +54,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   async function login(email: string, password: string) {
-    const { challenge_id } = await api.login(email, password);
-    return challenge_id;
+    const result = await api.login(email, password);
+    if (result.token && result.user) {
+      const next = { token: result.token, user: result.user };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+      setSession(next);
+      return { user: result.user } as const;
+    }
+    return { challengeId: result.challenge_id! } as const;
   }
 
   async function verifyCode(challengeId: string, code: string) {

@@ -27,8 +27,12 @@ export default function LoginPage() {
     setError(null);
     setSubmitting(true);
     try {
-      const id = await login(email, password);
-      setChallengeId(id);
+      const result = await login(email, password);
+      if (result.user) {
+        router.replace(dashboardPathFor(result.user.role));
+      } else {
+        setChallengeId(result.challengeId);
+      }
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Unable to log in. Please try again.");
     } finally {
