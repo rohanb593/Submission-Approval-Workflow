@@ -92,6 +92,11 @@ interface RequestOptions {
   body?: unknown;
 }
 
+// REQUEST_TIMEOUT_MS bounds every call: fetch() has no default timeout, so a
+// backend that hangs (e.g. an outbound SMTP call with no deadline of its
+// own) would otherwise leave the UI stuck indefinitely with no error.
+const REQUEST_TIMEOUT_MS = 20_000;
+
 async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const headers: Record<string, string> = {};
   if (options.body !== undefined) {
@@ -101,11 +106,20 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
     headers["Authorization"] = `Bearer ${options.token}`;
   }
 
-  const res = await fetch(`${API_BASE_URL}${path}`, {
-    method: options.method ?? "GET",
-    headers,
-    body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
-  });
+  let res: Response;
+  try {
+    res = await fetch(`${API_BASE_URL}${path}`, {
+      method: options.method ?? "GET",
+      headers,
+      body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+    });
+  } catch (err) {
+    if (err instanceof DOMException && err.name === "TimeoutError") {
+      throw new ApiError(0, "The request timed out. Please try again.");
+    }
+    throw new ApiError(0, "Could not reach the server. Please try again.");
+  }
 
   if (res.status === 204) {
     return undefined as T;
