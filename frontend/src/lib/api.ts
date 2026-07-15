@@ -2,7 +2,7 @@
 // here rather than using fetch directly, so token attachment, base URL, and
 // error shaping stay in one place.
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8080";
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8080";
 
 export type Role = "requester" | "reviewer" | "admin";
 
