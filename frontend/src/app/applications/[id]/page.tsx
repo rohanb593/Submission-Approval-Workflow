@@ -17,6 +17,7 @@ import {
 import { AppHeader } from "@/components/AppHeader";
 import { StatusBadge } from "@/components/StatusBadge";
 import { ApplicationForm } from "@/components/ApplicationForm";
+import { ReviewActions } from "@/components/ReviewActions";
 
 type LoadState =
   | { status: "loading" }
@@ -146,6 +147,16 @@ export default function ApplicationDetailPage() {
               <p className="whitespace-pre-wrap text-sm text-zinc-700 dark:text-zinc-300">
                 {state.application.description || "No description provided."}
               </p>
+            )}
+
+            {(user.role === "reviewer" || user.role === "admin") && (
+              <ReviewActions
+                applicationId={id}
+                status={state.application.status}
+                role={user.role}
+                token={token!}
+                onActionComplete={load}
+              />
             )}
 
             <div>
