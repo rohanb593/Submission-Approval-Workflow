@@ -12,17 +12,20 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/rohanb2005uk/submission-approval-workflow/backend/internal/applications"
+	"github.com/rohanb2005uk/submission-approval-workflow/backend/internal/mailer"
 	"github.com/rohanb2005uk/submission-approval-workflow/backend/internal/workflow"
 )
 
 // NewRouter builds the complete HTTP router for the API. corsOrigin is the
 // single origin (e.g. the frontend's dev server URL) allowed to call this
 // API from a browser.
-func NewRouter(db *gorm.DB, jwtSecret string, corsOrigin string) http.Handler {
+func NewRouter(db *gorm.DB, jwtSecret string, corsOrigin string, mailSender mailer.Mailer, enable2FA bool) http.Handler {
 	h := &handlers{
-		db:     db,
-		apps:   applications.New(db),
-		secret: jwtSecret,
+		db:        db,
+		apps:      applications.New(db),
+		secret:    jwtSecret,
+		mailer:    mailSender,
+		enable2FA: enable2FA,
 	}
 
 	r := chi.NewRouter()
@@ -35,6 +38,7 @@ func NewRouter(db *gorm.DB, jwtSecret string, corsOrigin string) http.Handler {
 	})
 
 	r.Post("/auth/login", h.login)
+	r.Post("/auth/login/verify", h.verifyLogin)
 
 	r.Route("/applications", func(r chi.Router) {
 		r.Use(RequireAuth(jwtSecret))
@@ -60,6 +64,20 @@ func NewRouter(db *gorm.DB, jwtSecret string, corsOrigin string) http.Handler {
 		r.Use(RequireRole(workflow.RoleAdmin))
 
 		r.Get("/", h.listActivity)
+	})
+
+	r.Route("/admin/users", func(r chi.Router) {
+		r.Use(RequireAuth(jwtSecret))
+		r.Use(h.LogActivity)
+		r.Use(RequireRole(workflow.RoleAdmin))
+
+		r.Get("/", h.listUsers)
+		r.Post("/", h.createUser)
+
+		r.Route("/{id}", func(r chi.Router) {
+			r.Put("/role", h.updateUserRole)
+			r.Delete("/", h.deleteUser)
+		})
 	})
 
 	return r

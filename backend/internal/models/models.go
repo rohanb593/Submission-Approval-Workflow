@@ -17,6 +17,24 @@ type User struct {
 	CreatedAt    time.Time
 }
 
+// TwoFactorChallenge is the server-side record of an email OTP code issued
+// after a successful password check, but before a JWT is handed out. It's
+// consumed (or expires) before the login can complete.
+type TwoFactorChallenge struct {
+	ID         uuid.UUID `gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
+	UserID     uuid.UUID `gorm:"type:uuid;not null;index"`
+	User       User      `gorm:"foreignKey:UserID;references:ID;constraint:OnDelete:CASCADE"`
+	CodeHash   string    `gorm:"not null"`
+	Attempts   int       `gorm:"not null;default:0"`
+	ExpiresAt  time.Time `gorm:"not null"`
+	ConsumedAt *time.Time
+	CreatedAt  time.Time
+}
+
+func (TwoFactorChallenge) TableName() string {
+	return "two_factor_challenges"
+}
+
 type Application struct {
 	ID             uuid.UUID `gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
 	OwnerID        uuid.UUID `gorm:"type:uuid;not null;index"`

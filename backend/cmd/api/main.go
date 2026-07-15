@@ -9,6 +9,7 @@ import (
 	"github.com/rohanb2005uk/submission-approval-workflow/backend/internal/config"
 	"github.com/rohanb2005uk/submission-approval-workflow/backend/internal/db"
 	"github.com/rohanb2005uk/submission-approval-workflow/backend/internal/httpapi"
+	"github.com/rohanb2005uk/submission-approval-workflow/backend/internal/mailer"
 )
 
 func main() {
@@ -32,7 +33,15 @@ func main() {
 	}
 	log.Println("schema migrated successfully")
 
-	router := httpapi.NewRouter(conn, cfg.JWTSecret, cfg.CORSOrigin)
+	mailSender := mailer.New(mailer.Config{
+		Host:     cfg.SMTPHost,
+		Port:     cfg.SMTPPort,
+		Username: cfg.SMTPUsername,
+		Password: cfg.SMTPPassword,
+		From:     cfg.SMTPFrom,
+	})
+
+	router := httpapi.NewRouter(conn, cfg.JWTSecret, cfg.CORSOrigin, mailSender, cfg.Enable2FA)
 
 	log.Printf("listening on :%s", cfg.Port)
 	if err := http.ListenAndServe(":"+cfg.Port, router); err != nil {
