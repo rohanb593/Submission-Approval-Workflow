@@ -2,11 +2,13 @@ package main
 
 import (
 	"log"
+	"net/http"
 
 	"github.com/joho/godotenv"
 
 	"github.com/rohanb2005uk/submission-approval-workflow/backend/internal/config"
 	"github.com/rohanb2005uk/submission-approval-workflow/backend/internal/db"
+	"github.com/rohanb2005uk/submission-approval-workflow/backend/internal/httpapi"
 )
 
 func main() {
@@ -30,5 +32,10 @@ func main() {
 	}
 	log.Println("schema migrated successfully")
 
-	// The chi router / HTTP server is added in Day 2 once the API endpoints exist.
+	router := httpapi.NewRouter(conn, cfg.JWTSecret)
+
+	log.Printf("listening on :%s", cfg.Port)
+	if err := http.ListenAndServe(":"+cfg.Port, router); err != nil {
+		log.Fatalf("server error: %v", err)
+	}
 }

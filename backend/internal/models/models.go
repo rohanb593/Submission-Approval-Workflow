@@ -18,17 +18,17 @@ type User struct {
 }
 
 type Application struct {
-	ID              uuid.UUID `gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
-	OwnerID         uuid.UUID `gorm:"type:uuid;not null;index"`
-	Owner           User      `gorm:"foreignKey:OwnerID;references:ID;constraint:OnDelete:RESTRICT"`
-	Title           string    `gorm:"not null"`
-	Category        string    `gorm:"not null;check:category IN ('travel','equipment','training','other')"`
-	Description     string    `gorm:"not null;default:''"`
-	Amount          *float64
-	AttachmentPath  *string
-	Status          string `gorm:"not null;default:DRAFT;index;check:status IN ('DRAFT','SUBMITTED','UNDER_REVIEW','APPROVED','REJECTED')"`
-	CreatedAt       time.Time
-	UpdatedAt       time.Time
+	ID             uuid.UUID `gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
+	OwnerID        uuid.UUID `gorm:"type:uuid;not null;index"`
+	Owner          User      `gorm:"foreignKey:OwnerID;references:ID;constraint:OnDelete:RESTRICT"`
+	Title          string    `gorm:"not null"`
+	Category       string    `gorm:"not null;check:category IN ('travel','equipment','training','other')"`
+	Description    string    `gorm:"not null;default:''"`
+	Amount         *float64
+	AttachmentPath *string
+	Status         string `gorm:"not null;default:DRAFT;index;check:status IN ('DRAFT','SUBMITTED','UNDER_REVIEW','APPROVED','REJECTED')"`
+	CreatedAt      time.Time
+	UpdatedAt      time.Time
 }
 
 type AuditLogEntry struct {
