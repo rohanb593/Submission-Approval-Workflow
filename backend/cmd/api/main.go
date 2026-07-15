@@ -34,11 +34,8 @@ func main() {
 	log.Println("schema migrated successfully")
 
 	mailSender := mailer.New(mailer.Config{
-		Host:     cfg.SMTPHost,
-		Port:     cfg.SMTPPort,
-		Username: cfg.SMTPUsername,
-		Password: cfg.SMTPPassword,
-		From:     cfg.SMTPFrom,
+		APIKey: cfg.ResendAPIKey,
+		From:   cfg.EmailFrom,
 	})
 
 	router := httpapi.NewRouter(conn, cfg.JWTSecret, cfg.CORSOrigin, mailSender, cfg.Enable2FA)

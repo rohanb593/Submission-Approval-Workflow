@@ -7,20 +7,17 @@ import (
 )
 
 type Config struct {
-	Port         string
-	DatabaseURL  string
-	JWTSecret    string
-	CORSOrigin   string
+	Port        string
+	DatabaseURL string
+	JWTSecret   string
+	CORSOrigin  string
 	// Enable2FA gates the email-OTP step of login. When false, login()
 	// issues a token immediately after the password check instead of
 	// creating a challenge and emailing a code; verifyLogin and the rest of
 	// the OTP machinery stay in place, unused, for when this flips back on.
 	Enable2FA    bool
-	SMTPHost     string
-	SMTPPort     string
-	SMTPUsername string
-	SMTPPassword string
-	SMTPFrom     string
+	ResendAPIKey string
+	EmailFrom    string
 }
 
 func Load() (Config, error) {
@@ -30,11 +27,8 @@ func Load() (Config, error) {
 		JWTSecret:    os.Getenv("JWT_SECRET"),
 		CORSOrigin:   getEnv("CORS_ORIGIN", "http://localhost:3000"),
 		Enable2FA:    getEnv("ENABLE_2FA", "false") == "true",
-		SMTPHost:     getEnv("SMTP_HOST", "smtp.gmail.com"),
-		SMTPPort:     getEnv("SMTP_PORT", "587"),
-		SMTPUsername: os.Getenv("SMTP_USERNAME"),
-		SMTPPassword: os.Getenv("SMTP_PASSWORD"),
-		SMTPFrom:     os.Getenv("SMTP_FROM"),
+		ResendAPIKey: os.Getenv("RESEND_API_KEY"),
+		EmailFrom:    getEnv("EMAIL_FROM", "Submission Approval Workflow <onboarding@resend.dev>"),
 	}
 
 	if cfg.DatabaseURL == "" {
@@ -43,18 +37,10 @@ func Load() (Config, error) {
 	if cfg.JWTSecret == "" {
 		return Config{}, fmt.Errorf("JWT_SECRET is required")
 	}
-	// SMTP creds are only needed to send the OTP email, so only require them
-	// when 2FA is actually enabled.
-	if cfg.Enable2FA {
-		if cfg.SMTPUsername == "" {
-			return Config{}, fmt.Errorf("SMTP_USERNAME is required")
-		}
-		if cfg.SMTPPassword == "" {
-			return Config{}, fmt.Errorf("SMTP_PASSWORD is required")
-		}
-	}
-	if cfg.SMTPFrom == "" {
-		cfg.SMTPFrom = cfg.SMTPUsername
+	// Only needed to send the OTP email, so only require it when 2FA is
+	// actually enabled.
+	if cfg.Enable2FA && cfg.ResendAPIKey == "" {
+		return Config{}, fmt.Errorf("RESEND_API_KEY is required")
 	}
 
 	return cfg, nil
