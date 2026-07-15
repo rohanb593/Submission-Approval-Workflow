@@ -3,11 +3,8 @@
 import { useEffect, useState, FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
-import { ApiError, Role } from "@/lib/api";
-
-function dashboardPathFor(role: Role) {
-  return role === "reviewer" ? "/review" : "/applications";
-}
+import { ApiError } from "@/lib/api";
+import { dashboardPathFor } from "@/lib/roles";
 
 export default function LoginPage() {
   const router = useRouter();

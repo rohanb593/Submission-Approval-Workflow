@@ -130,12 +130,12 @@ func (s *Service) Get(ctx context.Context, id uuid.UUID) (*models.Application, [
 	return app, entries, nil
 }
 
-// List returns applications visible to the given actor. Applicants only see
-// their own applications; reviewers see every application. statusFilter, if
-// non-empty, restricts the result to that status for either role.
+// List returns applications visible to the given actor. Requesters only see
+// their own applications; reviewers and admins see every application.
+// statusFilter, if non-empty, restricts the result to that status.
 func (s *Service) List(ctx context.Context, actorID uuid.UUID, actorRole workflow.Role, statusFilter string) ([]models.Application, error) {
 	q := s.db.WithContext(ctx).Model(&models.Application{})
-	if actorRole == workflow.RoleApplicant {
+	if actorRole == workflow.RoleRequester {
 		q = q.Where("owner_id = ?", actorID)
 	}
 	if statusFilter != "" {

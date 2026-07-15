@@ -39,7 +39,7 @@ func NewRouter(db *gorm.DB, jwtSecret string, corsOrigin string) http.Handler {
 	r.Route("/applications", func(r chi.Router) {
 		r.Use(RequireAuth(jwtSecret))
 
-		r.With(RequireRole(workflow.RoleApplicant)).Post("/", h.createApplication)
+		r.With(RequireRole(workflow.RoleRequester)).Post("/", h.createApplication)
 		r.Get("/", h.listApplications)
 
 		r.Route("/{id}", func(r chi.Router) {

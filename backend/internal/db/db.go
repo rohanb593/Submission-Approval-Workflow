@@ -32,6 +32,27 @@ func Connect(databaseURL string) (*gorm.DB, error) {
 }
 
 // AutoMigrate reconciles the database schema against the model structs.
+//
+// GORM's AutoMigrate only creates a named check constraint if one by that
+// name doesn't already exist; it won't widen an existing one's definition.
+// So when the set of allowed roles changes, drop the old constraint first
+// and let AutoMigrate recreate it from the current struct tag. Any rows
+// left over from before the requester rename are normalized first so they
+// don't violate the constraint being re-added.
 func AutoMigrate(db *gorm.DB) error {
+	if err := db.Exec(`ALTER TABLE IF EXISTS users DROP CONSTRAINT IF EXISTS chk_users_role`).Error; err != nil {
+		return fmt.Errorf("dropping stale role constraint: %w", err)
+	}
+	normalizeLegacyRole := `
+		DO $$
+		BEGIN
+			IF to_regclass('public.users') IS NOT NULL THEN
+				UPDATE users SET role = 'requester' WHERE role = 'applicant';
+			END IF;
+		END $$;
+	`
+	if err := db.Exec(normalizeLegacyRole).Error; err != nil {
+		return fmt.Errorf("normalizing legacy applicant role: %w", err)
+	}
 	return db.AutoMigrate(&models.User{}, &models.Application{}, &models.AuditLogEntry{})
 }

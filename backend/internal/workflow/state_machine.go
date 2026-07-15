@@ -22,8 +22,11 @@ const (
 type Role string
 
 const (
-	RoleApplicant Role = "applicant"
+	RoleRequester Role = "requester"
 	RoleReviewer  Role = "reviewer"
+	// RoleAdmin can perform any reviewer action from any status — see
+	// adminOverrides below — bypassing the normal from-status rules.
+	RoleAdmin Role = "admin"
 )
 
 type Action string
@@ -63,7 +66,7 @@ type transitionKey struct {
 var transitions = map[transitionKey]transitionRule{
 	{StatusDraft, ActionSubmit}: {
 		To:           StatusSubmitted,
-		AllowedRole:  RoleApplicant,
+		AllowedRole:  RoleRequester,
 		RequireOwner: true,
 	},
 	{StatusSubmitted, ActionStartReview}: {
@@ -86,13 +89,38 @@ var transitions = map[transitionKey]transitionRule{
 	},
 }
 
+// adminOverrides defines, for each action, the resulting status and comment
+// requirement admins get regardless of the application's current status.
+// Everyone else must go through the from-status rules in transitions above.
+var adminOverrides = map[Action]transitionRule{
+	ActionSubmit:           {To: StatusSubmitted},
+	ActionStartReview:      {To: StatusUnderReview},
+	ActionApprove:          {To: StatusApproved},
+	ActionReject:           {To: StatusRejected, RequiresComment: true},
+	ActionReturnForChanges: {To: StatusDraft, RequiresComment: true},
+}
+
 // Transition attempts to move an application from its current status via
 // action, performed by an actor with actorRole. isOwner is only consulted
 // for owner-restricted transitions (currently just submit). It returns the
 // resulting status, or an error identifying exactly why the transition was
 // rejected: illegal (no such rule), forbidden (wrong role/not owner), or a
 // missing required comment.
+//
+// Admins bypass the from-status check entirely: any action is legal from
+// any current status, though reject/return still require a comment.
 func Transition(current Status, action Action, actorRole Role, isOwner bool, comment string) (Status, error) {
+	if actorRole == RoleAdmin {
+		rule, ok := adminOverrides[action]
+		if !ok {
+			return "", fmt.Errorf("%w: unknown action %s", ErrIllegalTransition, action)
+		}
+		if rule.RequiresComment && strings.TrimSpace(comment) == "" {
+			return "", fmt.Errorf("%w: %q requires a comment", ErrCommentRequired, action)
+		}
+		return rule.To, nil
+	}
+
 	rule, ok := transitions[transitionKey{From: current, Action: action}]
 	if !ok {
 		return "", fmt.Errorf("%w: cannot %s from status %s", ErrIllegalTransition, action, current)

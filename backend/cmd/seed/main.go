@@ -1,6 +1,8 @@
-// Command seed creates the fixed test users (one applicant, one reviewer)
-// used to log in and drive the workflow. Safe to run multiple times: it
-// looks up each user by email first and only creates it if missing.
+// Command seed resets the database to exactly three fixed test users (one
+// requester, one reviewer, one admin) used to log in and drive the
+// workflow. It is destructive: every application, audit log entry, and user
+// is deleted before the three are recreated, so re-run it whenever you want
+// a clean slate rather than to top up existing data.
 package main
 
 import (
@@ -35,9 +37,16 @@ func main() {
 		log.Fatalf("running automigrate: %v", err)
 	}
 
+	for _, table := range []string{"application_audit_log", "applications", "users"} {
+		if err := conn.Exec("TRUNCATE TABLE " + table + " CASCADE").Error; err != nil {
+			log.Fatalf("truncating %s: %v", table, err)
+		}
+	}
+
 	seedUsers := []models.User{
-		{Email: "applicant@example.com", Role: "applicant"},
+		{Email: "requester@example.com", Role: "requester"},
 		{Email: "reviewer@example.com", Role: "reviewer"},
+		{Email: "admin@example.com", Role: "admin"},
 	}
 
 	for _, u := range seedUsers {
@@ -47,17 +56,11 @@ func main() {
 		}
 		u.PasswordHash = hash
 
-		result := conn.Where(models.User{Email: u.Email}).FirstOrCreate(&u)
-		if result.Error != nil {
-			log.Fatalf("seeding user %s: %v", u.Email, result.Error)
+		if err := conn.Create(&u).Error; err != nil {
+			log.Fatalf("seeding user %s: %v", u.Email, err)
 		}
-
-		if result.RowsAffected > 0 {
-			log.Printf("created user: %s (role=%s)", u.Email, u.Role)
-		} else {
-			log.Printf("user already exists, skipped: %s", u.Email)
-		}
+		log.Printf("created user: %s (role=%s)", u.Email, u.Role)
 	}
 
-	log.Printf("seed complete. test password for both users: %s", seedPassword)
+	log.Printf("seed complete. test password for all users: %s", seedPassword)
 }

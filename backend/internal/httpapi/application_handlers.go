@@ -184,8 +184,8 @@ func (h *handlers) getApplication(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// An applicant may only view their own application; a reviewer may view any.
-	if actor.Role == workflow.RoleApplicant && app.OwnerID != actor.UserID {
+	// A requester may only view their own application; reviewers and admins may view any.
+	if actor.Role == workflow.RoleRequester && app.OwnerID != actor.UserID {
 		writeError(w, http.StatusForbidden, "you do not have permission to view this application")
 		return
 	}

@@ -27,9 +27,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    // Deliberately deferred to an effect rather than a useState lazy
+    // initializer: localStorage doesn't exist during SSR, so reading it
+    // during render would either crash on the server or desync the first
+    // client render from the server-sent HTML (a hydration mismatch).
+    // Running once after mount keeps both initial renders as isLoading=true.
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       try {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setSession(JSON.parse(raw));
       } catch {
         localStorage.removeItem(STORAGE_KEY);

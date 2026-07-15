@@ -13,7 +13,7 @@ type User struct {
 	ID           uuid.UUID `gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
 	Email        string    `gorm:"not null;uniqueIndex"`
 	PasswordHash string    `gorm:"not null"`
-	Role         string    `gorm:"not null;check:role IN ('applicant','reviewer')"`
+	Role         string    `gorm:"not null;check:role IN ('requester','reviewer','admin')"`
 	CreatedAt    time.Time
 }
 

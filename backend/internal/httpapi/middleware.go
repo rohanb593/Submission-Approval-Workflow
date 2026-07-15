@@ -57,7 +57,7 @@ func CORS(allowedOrigin string) func(http.Handler) http.Handler {
 
 // RequireRole rejects the request with 403 unless the authenticated actor
 // has the given role. It must run after RequireAuth. Used only for rules
-// that fall outside the state machine itself, such as "only applicants may
+// that fall outside the state machine itself, such as "only requesters may
 // create applications".
 func RequireRole(role workflow.Role) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {

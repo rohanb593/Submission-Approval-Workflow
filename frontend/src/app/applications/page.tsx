@@ -14,7 +14,7 @@ type LoadState =
   | { status: "ready"; applications: Application[] };
 
 export default function ApplicantDashboard() {
-  const user = useRequireRole("applicant");
+  const user = useRequireRole("requester");
   const { token } = useAuth();
   const [state, setState] = useState<LoadState>({ status: "loading" });
 

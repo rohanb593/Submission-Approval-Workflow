@@ -32,7 +32,7 @@ func TestGenerateAndParseToken(t *testing.T) {
 }
 
 func TestParseToken_Expired(t *testing.T) {
-	tokenString, err := GenerateToken(uuid.New(), "applicant", testSecret, -time.Hour)
+	tokenString, err := GenerateToken(uuid.New(), "requester", testSecret, -time.Hour)
 	if err != nil {
 		t.Fatalf("GenerateToken returned error: %v", err)
 	}
@@ -43,7 +43,7 @@ func TestParseToken_Expired(t *testing.T) {
 }
 
 func TestParseToken_WrongSecret(t *testing.T) {
-	tokenString, err := GenerateToken(uuid.New(), "applicant", testSecret, time.Hour)
+	tokenString, err := GenerateToken(uuid.New(), "requester", testSecret, time.Hour)
 	if err != nil {
 		t.Fatalf("GenerateToken returned error: %v", err)
 	}

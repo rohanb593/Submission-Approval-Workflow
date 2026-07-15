@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
+import { dashboardPathFor } from "@/lib/roles";
 
 export default function Home() {
   const router = useRouter();
@@ -10,7 +11,7 @@ export default function Home() {
 
   useEffect(() => {
     if (isLoading) return;
-    router.replace(user ? (user.role === "reviewer" ? "/review" : "/applications") : "/login");
+    router.replace(user ? dashboardPathFor(user.role) : "/login");
   }, [isLoading, user, router]);
 
   return null;
