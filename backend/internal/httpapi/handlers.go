@@ -8,6 +8,7 @@ import (
 
 	"github.com/rohanb2005uk/submission-approval-workflow/backend/internal/applications"
 	"github.com/rohanb2005uk/submission-approval-workflow/backend/internal/mailer"
+	"github.com/rohanb2005uk/submission-approval-workflow/backend/internal/notifications"
 )
 
 // tokenTTL is how long an issued JWT remains valid.
@@ -33,10 +34,11 @@ const loginRateLimitWindow = 15 * time.Minute
 
 // handlers holds the dependencies shared by every HTTP handler.
 type handlers struct {
-	db        *gorm.DB
-	redis     *redis.Client
-	apps      *applications.Service
-	secret    string
-	mailer    mailer.Mailer
-	enable2FA bool
+	db            *gorm.DB
+	redis         *redis.Client
+	apps          *applications.Service
+	notifications *notifications.Service
+	secret        string
+	mailer        mailer.Mailer
+	enable2FA     bool
 }

@@ -5,6 +5,8 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -13,6 +15,14 @@ import (
 	"github.com/rohanb2005uk/submission-approval-workflow/backend/internal/applications"
 	"github.com/rohanb2005uk/submission-approval-workflow/backend/internal/models"
 	"github.com/rohanb2005uk/submission-approval-workflow/backend/internal/workflow"
+)
+
+// defaultPageSize/maxPageSize bound the reviewer queue's page_size query
+// param: a sensible default when omitted, and a ceiling so a caller can't
+// force an unbounded (and uncached-per-value) query.
+const (
+	defaultPageSize = 20
+	maxPageSize     = 100
 )
 
 var validStatuses = map[string]bool{
@@ -74,6 +84,19 @@ func toAuditEntryResponse(e models.AuditLogEntry) auditEntryResponse {
 type applicationDetailResponse struct {
 	applicationResponse
 	AuditLog []auditEntryResponse `json:"audit_log"`
+}
+
+// applicationListResponse is the reviewer/applicant queue response: one
+// page of applications, the total row count the current status/search
+// filter matched (for computing page count), and a status->count breakdown
+// that ignores filtering entirely (for the dashboard stat cards, which
+// always summarize the actor's whole visible set).
+type applicationListResponse struct {
+	Applications []applicationResponse `json:"applications"`
+	Total        int64                 `json:"total"`
+	Page         int                   `json:"page"`
+	PageSize     int                   `json:"page_size"`
+	Counts       map[string]int64      `json:"counts"`
 }
 
 type applicationRequest struct {
@@ -147,6 +170,18 @@ func (h *handlers) createApplication(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, toApplicationResponse(app))
 }
 
+// parsePositiveInt parses raw as a positive int, falling back to def if raw
+// is empty or not a valid positive integer - used for the page/page_size
+// query params, where a malformed value is treated as "not specified"
+// rather than a 400.
+func parsePositiveInt(raw string, def int) int {
+	n, err := strconv.Atoi(raw)
+	if err != nil || n < 1 {
+		return def
+	}
+	return n
+}
+
 func (h *handlers) listApplications(w http.ResponseWriter, r *http.Request) {
 	actor, _ := actorFromContext(r.Context())
 
@@ -155,8 +190,19 @@ func (h *handlers) listApplications(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "unknown status filter")
 		return
 	}
+	search := strings.TrimSpace(r.URL.Query().Get("search"))
+	page := parsePositiveInt(r.URL.Query().Get("page"), 1)
+	pageSize := parsePositiveInt(r.URL.Query().Get("page_size"), defaultPageSize)
+	if pageSize > maxPageSize {
+		pageSize = maxPageSize
+	}
 
-	apps, err := h.apps.List(r.Context(), actor.UserID, actor.Role, status)
+	apps, total, err := h.apps.List(r.Context(), actor.UserID, actor.Role, status, search, page, pageSize)
+	if err != nil {
+		handleServiceError(w, err)
+		return
+	}
+	counts, err := h.apps.Counts(r.Context(), actor.UserID, actor.Role)
 	if err != nil {
 		handleServiceError(w, err)
 		return
@@ -166,7 +212,13 @@ func (h *handlers) listApplications(w http.ResponseWriter, r *http.Request) {
 	for i, app := range apps {
 		resp[i] = toApplicationResponse(&app)
 	}
-	writeJSON(w, http.StatusOK, resp)
+	writeJSON(w, http.StatusOK, applicationListResponse{
+		Applications: resp,
+		Total:        total,
+		Page:         page,
+		PageSize:     pageSize,
+		Counts:       counts,
+	})
 }
 
 func (h *handlers) getApplication(w http.ResponseWriter, r *http.Request) {

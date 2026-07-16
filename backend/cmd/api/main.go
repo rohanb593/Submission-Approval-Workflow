@@ -45,7 +45,7 @@ func main() {
 		From:   cfg.EmailFrom,
 	})
 
-	router := httpapi.NewRouter(conn, redisClient, cfg.JWTSecret, cfg.CORSOrigin, mailSender, cfg.Enable2FA)
+	router := httpapi.NewRouter(conn, redisClient, cfg.JWTSecret, cfg.CORSOrigin, mailSender, cfg.Enable2FA, cfg.NotifyEmail)
 
 	log.Printf("listening on :%s", cfg.Port)
 	if err := http.ListenAndServe(":"+cfg.Port, router); err != nil {

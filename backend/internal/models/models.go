@@ -70,3 +70,22 @@ type ActivityLogEntry struct {
 func (ActivityLogEntry) TableName() string {
 	return "activity_log"
 }
+
+// Notification is an in-app notification delivered to one user, created
+// whenever an application they care about changes status: the owner is
+// notified of a decision on their submission, and reviewers/admins are
+// notified when a new application needs review.
+type Notification struct {
+	ID            uuid.UUID   `gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
+	RecipientID   uuid.UUID   `gorm:"type:uuid;not null;index"`
+	Recipient     User        `gorm:"foreignKey:RecipientID;references:ID;constraint:OnDelete:RESTRICT"`
+	ApplicationID uuid.UUID   `gorm:"type:uuid;not null;index"`
+	Application   Application `gorm:"foreignKey:ApplicationID;references:ID;constraint:OnDelete:RESTRICT"`
+	Message       string      `gorm:"not null"`
+	Read          bool        `gorm:"not null;default:false;index"`
+	CreatedAt     time.Time   `gorm:"index"`
+}
+
+func (Notification) TableName() string {
+	return "notifications"
+}

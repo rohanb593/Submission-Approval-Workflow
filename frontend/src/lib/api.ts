@@ -56,6 +56,34 @@ export interface AdminUser {
   created_at: string;
 }
 
+export interface PaginatedApplications {
+  applications: Application[];
+  total: number;
+  page: number;
+  page_size: number;
+  counts: Partial<Record<Status, number>>;
+}
+
+export interface ListApplicationsParams {
+  status?: Status | "";
+  search?: string;
+  page?: number;
+  pageSize?: number;
+}
+
+export interface NotificationEntry {
+  id: string;
+  application_id: string;
+  message: string;
+  read: boolean;
+  created_at: string;
+}
+
+export interface NotificationList {
+  notifications: NotificationEntry[];
+  unread_count: number;
+}
+
 export interface ActivityEntry {
   id: string;
   actor_id: string;
@@ -159,9 +187,13 @@ export function verifyLoginCode(challengeId: string, code: string) {
   });
 }
 
-export function listApplications(token: string, status?: string) {
-  const qs = status ? `?status=${encodeURIComponent(status)}` : "";
-  return request<Application[]>(`/applications${qs}`, { token });
+export function listApplications(token: string, params: ListApplicationsParams = {}) {
+  const qs = new URLSearchParams();
+  if (params.status) qs.set("status", params.status);
+  if (params.search) qs.set("search", params.search);
+  qs.set("page", String(params.page ?? 1));
+  qs.set("page_size", String(params.pageSize ?? 20));
+  return request<PaginatedApplications>(`/applications?${qs.toString()}`, { token });
 }
 
 export function getApplication(token: string, id: string) {
@@ -191,6 +223,18 @@ export function transitionApplication(
 
 export function listActivity(token: string) {
   return request<ActivityEntry[]>("/activity", { token });
+}
+
+export function listNotifications(token: string) {
+  return request<NotificationList>("/notifications", { token });
+}
+
+export function markNotificationRead(token: string, id: string) {
+  return request<void>(`/notifications/${id}/read`, { method: "POST", token });
+}
+
+export function markAllNotificationsRead(token: string) {
+  return request<void>("/notifications/read-all", { method: "POST", token });
 }
 
 export function listUsers(token: string) {

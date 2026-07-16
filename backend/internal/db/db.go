@@ -63,5 +63,6 @@ func AutoMigrate(db *gorm.DB) error {
 		&models.Application{},
 		&models.AuditLogEntry{},
 		&models.ActivityLogEntry{},
+		&models.Notification{},
 	)
 }

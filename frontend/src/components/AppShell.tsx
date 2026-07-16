@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
 import { Role } from "@/lib/api";
+import { NotificationsBell } from "@/components/NotificationsBell";
 
 interface NavItem {
   label: string;
@@ -91,7 +92,12 @@ export function AppShell({ children }: { children: ReactNode }) {
         )}
       </aside>
 
-      <div className="flex-1 bg-white dark:bg-zinc-950">{children}</div>
+      <div className="flex-1 bg-white dark:bg-zinc-950">
+        <div className="flex justify-end border-b border-zinc-200 px-6 py-3 dark:border-zinc-800">
+          <NotificationsBell />
+        </div>
+        {children}
+      </div>
     </div>
   );
 }

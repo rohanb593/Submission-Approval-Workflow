@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useAuth } from "@/lib/auth-context";
 import { useRequireRole } from "@/lib/use-require-role";
 import { listApplications, Application, ApiError, Status } from "@/lib/api";
@@ -8,12 +8,19 @@ import { AppShell } from "@/components/AppShell";
 import { PageHeader } from "@/components/PageHeader";
 import { StatCard } from "@/components/StatCard";
 import { FilterChips } from "@/components/FilterChips";
+import { SearchInput } from "@/components/SearchInput";
+import { Pagination } from "@/components/Pagination";
 import { SubmissionTable } from "@/components/SubmissionTable";
 
 type LoadState =
   | { status: "loading" }
   | { status: "error"; message: string }
-  | { status: "ready"; applications: Application[] };
+  | {
+      status: "ready";
+      applications: Application[];
+      total: number;
+      counts: Partial<Record<Status, number>>;
+    };
 
 const FILTERS: { label: string; value: Status | "" }[] = [
   { label: "All", value: "" },
@@ -24,19 +31,47 @@ const FILTERS: { label: string; value: Status | "" }[] = [
   { label: "Rejected", value: "REJECTED" },
 ];
 
+const PAGE_SIZE = 20;
+
 export default function ReviewDashboard() {
   const user = useRequireRole(["reviewer", "admin"]);
   const { token } = useAuth();
   const [state, setState] = useState<LoadState>({ status: "loading" });
   const [filter, setFilter] = useState<Status | "">("");
+  const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
+
+  function handleFilterChange(next: Status | "") {
+    setState({ status: "loading" });
+    setFilter(next);
+    setPage(1);
+  }
+
+  function handleSearchChange(next: string) {
+    setState({ status: "loading" });
+    setSearch(next);
+    setPage(1);
+  }
+
+  function handlePageChange(next: number) {
+    setState({ status: "loading" });
+    setPage(next);
+  }
 
   useEffect(() => {
     if (!user || !token) return;
     let cancelled = false;
 
-    listApplications(token)
-      .then((applications) => {
-        if (!cancelled) setState({ status: "ready", applications });
+    listApplications(token, { status: filter, search, page, pageSize: PAGE_SIZE })
+      .then((result) => {
+        if (!cancelled) {
+          setState({
+            status: "ready",
+            applications: result.applications,
+            total: result.total,
+            counts: result.counts,
+          });
+        }
       })
       .catch((err) => {
         if (cancelled) return;
@@ -47,27 +82,18 @@ export default function ReviewDashboard() {
     return () => {
       cancelled = true;
     };
-  }, [user, token]);
-
-  const all = useMemo(
-    () => (state.status === "ready" ? state.applications : []),
-    [state],
-  );
-  const stats = useMemo(
-    () => ({
-      total: all.length,
-      needsReview: all.filter((a) => a.status === "SUBMITTED" || a.status === "UNDER_REVIEW")
-        .length,
-      approved: all.filter((a) => a.status === "APPROVED").length,
-      rejected: all.filter((a) => a.status === "REJECTED").length,
-    }),
-    [all],
-  );
-  const filtered = filter ? all.filter((a) => a.status === filter) : all;
+  }, [user, token, filter, search, page]);
 
   if (!user) return null;
 
   const isAdmin = user.role === "admin";
+  const counts = state.status === "ready" ? state.counts : {};
+  const stats = {
+    total: Object.values(counts).reduce((sum: number, n) => sum + (n ?? 0), 0),
+    needsReview: (counts.SUBMITTED ?? 0) + (counts.UNDER_REVIEW ?? 0),
+    approved: counts.APPROVED ?? 0,
+    rejected: counts.REJECTED ?? 0,
+  };
 
   return (
     <AppShell>
@@ -82,18 +108,16 @@ export default function ReviewDashboard() {
           }
         />
 
-        {state.status === "ready" && (
-          <div className="mb-8 grid grid-cols-2 gap-4 sm:grid-cols-4">
-            <StatCard label="Total" value={stats.total} accent="zinc" />
-            <StatCard label="Needs Review" value={stats.needsReview} accent="amber" />
-            <StatCard label="Approved" value={stats.approved} accent="green" />
-            <StatCard label="Rejected" value={stats.rejected} accent="red" />
-          </div>
-        )}
+        <div className="mb-8 grid grid-cols-2 gap-4 sm:grid-cols-4">
+          <StatCard label="Total" value={stats.total} accent="zinc" />
+          <StatCard label="Needs Review" value={stats.needsReview} accent="amber" />
+          <StatCard label="Approved" value={stats.approved} accent="green" />
+          <StatCard label="Rejected" value={stats.rejected} accent="red" />
+        </div>
 
-        {state.status === "ready" && (
-          <FilterChips options={FILTERS} value={filter} onChange={setFilter} />
-        )}
+        <SearchInput value={search} onChange={handleSearchChange} placeholder="Search by title or description..." />
+
+        <FilterChips options={FILTERS} value={filter} onChange={handleFilterChange} />
 
         {state.status === "loading" && (
           <p className="text-sm text-zinc-500 dark:text-zinc-400">Loading applications...</p>
@@ -105,14 +129,17 @@ export default function ReviewDashboard() {
           </p>
         )}
 
-        {state.status === "ready" && filtered.length === 0 && (
+        {state.status === "ready" && state.applications.length === 0 && (
           <p className="text-sm text-zinc-500 dark:text-zinc-400">
             No applications match this filter.
           </p>
         )}
 
-        {state.status === "ready" && filtered.length > 0 && (
-          <SubmissionTable applications={filtered} />
+        {state.status === "ready" && state.applications.length > 0 && (
+          <>
+            <SubmissionTable applications={state.applications} />
+            <Pagination page={page} pageSize={PAGE_SIZE} total={state.total} onPageChange={handlePageChange} />
+          </>
         )}
       </main>
     </AppShell>

@@ -12,6 +12,7 @@ import {
   ApiError,
   ApplicationDetail,
   ApplicationInput,
+  AuditEntry,
   Status,
 } from "@/lib/api";
 import { AppShell } from "@/components/AppShell";
@@ -26,6 +27,29 @@ type LoadState =
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleString();
+}
+
+interface Revision {
+  number: number;
+  entries: AuditEntry[];
+}
+
+// groupIntoRevisions splits a flat audit trail into per-revision groups. A
+// new revision starts at every DRAFT -> SUBMITTED entry (a first submission
+// or a resubmission after being returned for changes) - there's no separate
+// revision counter in the backend, so this reconstructs it purely from the
+// from/to status pairs already on each entry.
+function groupIntoRevisions(auditLog: AuditEntry[]): Revision[] {
+  const revisions: Revision[] = [];
+  for (const entry of auditLog) {
+    const startsNewRevision = entry.from_status === "DRAFT" && entry.to_status === "SUBMITTED";
+    if (startsNewRevision || revisions.length === 0) {
+      revisions.push({ number: revisions.length + 1, entries: [entry] });
+    } else {
+      revisions[revisions.length - 1].entries.push(entry);
+    }
+  }
+  return revisions;
 }
 
 export default function ApplicationDetailPage() {
@@ -62,6 +86,13 @@ export default function ApplicationDetailPage() {
   const isDraft = state.status === "ready" && state.application.status === "DRAFT";
   const canEdit = user.role === "requester" && isOwner && isDraft;
 
+  const revisions = state.status === "ready" ? groupIntoRevisions(state.application.audit_log) : [];
+  const lastEntry = state.status === "ready" ? state.application.audit_log.at(-1) : undefined;
+  const returnedForChanges =
+    isDraft && lastEntry?.from_status === "UNDER_REVIEW" && lastEntry?.to_status === "DRAFT"
+      ? lastEntry
+      : undefined;
+
   return (
     <AppShell>
       <main className="mx-auto w-full max-w-5xl px-8 py-10">
@@ -80,6 +111,22 @@ export default function ApplicationDetailPage() {
           <p className="text-sm text-red-600 dark:text-red-400" role="alert">
             {state.message}
           </p>
+        )}
+
+        {state.status === "ready" && returnedForChanges && (
+          <div className="mb-6 rounded-lg border border-amber-300 bg-amber-50 p-4 dark:border-amber-800 dark:bg-amber-950/40">
+            <p className="text-sm font-semibold text-amber-800 dark:text-amber-300">
+              Returned for changes by {returnedForChanges.actor_email}
+            </p>
+            {returnedForChanges.comment && (
+              <p className="mt-1 text-sm text-amber-700 dark:text-amber-400">
+                {returnedForChanges.comment}
+              </p>
+            )}
+            <p className="mt-1 text-xs text-amber-600 dark:text-amber-500">
+              {formatDate(returnedForChanges.created_at)} &mdash; edit and resubmit when ready.
+            </p>
+          </div>
         )}
 
         {state.status === "ready" && (
@@ -196,34 +243,59 @@ export default function ApplicationDetailPage() {
               />
 
               <div className="rounded-lg border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
-                <h3 className="mb-4 text-sm font-semibold text-zinc-900 dark:text-zinc-50">
-                  Audit Trail
-                </h3>
-                {state.application.audit_log.length === 0 ? (
+                <div className="mb-4 flex items-center justify-between">
+                  <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">
+                    Revision History
+                  </h3>
+                  {revisions.length > 0 && (
+                    <span className="text-xs font-medium text-zinc-400 dark:text-zinc-500">
+                      Revision {revisions.length}
+                    </span>
+                  )}
+                </div>
+                {revisions.length === 0 ? (
                   <p className="text-sm text-zinc-500 dark:text-zinc-400">
                     No status changes yet.
                   </p>
                 ) : (
-                  <ul className="flex flex-col gap-4">
-                    {state.application.audit_log.map((entry) => (
-                      <li key={entry.id} className="border-l-2 border-indigo-500 pl-3">
-                        <div className="flex items-center gap-2">
-                          <StatusBadge status={entry.to_status as Status} />
-                          <span className="text-xs text-zinc-500 dark:text-zinc-400">
-                            {formatDate(entry.created_at)}
-                          </span>
-                        </div>
-                        <p className="mt-1 text-sm font-medium text-zinc-900 dark:text-zinc-50">
-                          {entry.actor_email}
+                  <div className="flex flex-col gap-6">
+                    {revisions.map((revision) => (
+                      <div key={revision.number}>
+                        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-indigo-600 dark:text-indigo-400">
+                          Revision {revision.number}
                         </p>
-                        {entry.comment && (
-                          <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
-                            {entry.comment}
-                          </p>
-                        )}
-                      </li>
+                        <ul className="flex flex-col gap-4">
+                          {revision.entries.map((entry) => {
+                            const wasReturned =
+                              entry.from_status === "UNDER_REVIEW" && entry.to_status === "DRAFT";
+                            return (
+                              <li
+                                key={entry.id}
+                                className={`border-l-2 pl-3 ${
+                                  wasReturned ? "border-amber-500" : "border-indigo-500"
+                                }`}
+                              >
+                                <div className="flex items-center gap-2">
+                                  <StatusBadge status={entry.to_status as Status} />
+                                  <span className="text-xs text-zinc-500 dark:text-zinc-400">
+                                    {formatDate(entry.created_at)}
+                                  </span>
+                                </div>
+                                <p className="mt-1 text-sm font-medium text-zinc-900 dark:text-zinc-50">
+                                  {entry.actor_email}
+                                </p>
+                                {entry.comment && (
+                                  <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
+                                    {entry.comment}
+                                  </p>
+                                )}
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      </div>
                     ))}
-                  </ul>
+                  </div>
                 )}
                 <p className="mt-4 text-xs text-zinc-400 dark:text-zinc-500">
                   {state.application.audit_log.length} record

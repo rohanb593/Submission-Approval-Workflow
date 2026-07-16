@@ -19,6 +19,10 @@ type Config struct {
 	Enable2FA    bool
 	ResendAPIKey string
 	EmailFrom    string
+	// NotifyEmail gates whether a status-change notification also goes out
+	// by email (via Resend) in addition to the in-app Notification row,
+	// which is always created regardless of this flag.
+	NotifyEmail bool
 }
 
 func Load() (Config, error) {
@@ -31,6 +35,7 @@ func Load() (Config, error) {
 		Enable2FA:    getEnv("ENABLE_2FA", "false") == "true",
 		ResendAPIKey: os.Getenv("RESEND_API_KEY"),
 		EmailFrom:    getEnv("EMAIL_FROM", "Submission Approval Workflow <onboarding@resend.dev>"),
+		NotifyEmail:  getEnv("ENABLE_EMAIL_NOTIFICATIONS", "false") == "true",
 	}
 
 	if cfg.DatabaseURL == "" {
@@ -39,9 +44,9 @@ func Load() (Config, error) {
 	if cfg.JWTSecret == "" {
 		return Config{}, fmt.Errorf("JWT_SECRET is required")
 	}
-	// Only needed to send the OTP email, so only require it when 2FA is
-	// actually enabled.
-	if cfg.Enable2FA && cfg.ResendAPIKey == "" {
+	// Only needed to send the OTP/notification emails, so only require it
+	// when one of those features is actually enabled.
+	if (cfg.Enable2FA || cfg.NotifyEmail) && cfg.ResendAPIKey == "" {
 		return Config{}, fmt.Errorf("RESEND_API_KEY is required")
 	}
 
