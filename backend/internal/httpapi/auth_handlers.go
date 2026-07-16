@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -109,6 +110,7 @@ func (h *handlers) login(w http.ResponseWriter, r *http.Request) {
 		code, int(otpTTL.Minutes()),
 	)
 	if err := h.mailer.Send(user.Email, "Your sign-in verification code", body); err != nil {
+		log.Printf("sending verification email to %s: %v", user.Email, err)
 		writeError(w, http.StatusInternalServerError, "sending verification email")
 		return
 	}
