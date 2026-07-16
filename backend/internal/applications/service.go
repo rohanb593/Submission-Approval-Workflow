@@ -6,15 +6,26 @@ package applications
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
+	"github.com/redis/go-redis/v9"
 	"gorm.io/gorm"
 
 	"github.com/rohanb2005uk/submission-approval-workflow/backend/internal/models"
 	"github.com/rohanb2005uk/submission-approval-workflow/backend/internal/workflow"
+)
+
+// listCacheTTL/getCacheTTL bound how long a cached response can outlive its
+// version counter's reach - a safety net for garbage collection, not the
+// primary invalidation mechanism (that's the version bump on every write).
+const (
+	listCacheTTL = 5 * time.Minute
+	getCacheTTL  = 5 * time.Minute
 )
 
 var (
@@ -84,11 +95,52 @@ func validate(title, category string) error {
 }
 
 type Service struct {
-	db *gorm.DB
+	db    *gorm.DB
+	redis *redis.Client
 }
 
-func New(db *gorm.DB) *Service {
-	return &Service{db: db}
+func New(db *gorm.DB, redisClient *redis.Client) *Service {
+	return &Service{db: db, redis: redisClient}
+}
+
+// cachedApplicationDetail is what Get() stores in Redis: the application
+// plus its audit trail, so a cache hit skips both queries at once.
+type cachedApplicationDetail struct {
+	Application models.Application
+	AuditLog    []models.AuditLogEntry
+}
+
+// listScope groups List() results the way visibility actually splits them:
+// requesters only ever see their own applications, so their cache is scoped
+// per-owner; reviewers/admins see everything, so they share one "all" scope.
+func listScope(actorID uuid.UUID, actorRole workflow.Role) string {
+	if actorRole == workflow.RoleRequester {
+		return "owner:" + actorID.String()
+	}
+	return "all"
+}
+
+func listVersionKey(scope string) string {
+	return "cache:v:applications:" + scope
+}
+
+func listCacheKey(scope, statusFilter string, version int64) string {
+	return fmt.Sprintf("cache:applications:list:%s:%s:v%d", scope, statusFilter, version)
+}
+
+func getCacheKey(id uuid.UUID) string {
+	return "cache:applications:get:" + id.String()
+}
+
+// invalidateCaches drops app's cached Get() entry and bumps both list
+// version counters it could appear under (the global "all" scope reviewers
+// and admins see, and its owner's scope), so every previously cached list
+// response becomes unreachable immediately - no need to know every status
+// filter combination that might have been cached.
+func (s *Service) invalidateCaches(ctx context.Context, app *models.Application) {
+	s.redis.Del(ctx, getCacheKey(app.ID))
+	s.redis.Incr(ctx, listVersionKey("all"))
+	s.redis.Incr(ctx, listVersionKey("owner:"+app.OwnerID.String()))
 }
 
 // Create persists a new DRAFT application owned by ownerID.
@@ -108,11 +160,20 @@ func (s *Service) Create(ctx context.Context, ownerID uuid.UUID, input CreateInp
 	if err := s.db.WithContext(ctx).Create(&app).Error; err != nil {
 		return nil, fmt.Errorf("creating application: %w", err)
 	}
+	s.invalidateCaches(ctx, &app)
 	return &app, nil
 }
 
 // Get returns an application and its full audit trail, ordered oldest first.
 func (s *Service) Get(ctx context.Context, id uuid.UUID) (*models.Application, []models.AuditLogEntry, error) {
+	key := getCacheKey(id)
+	if cached, err := s.redis.Get(ctx, key).Bytes(); err == nil {
+		var payload cachedApplicationDetail
+		if jsonErr := json.Unmarshal(cached, &payload); jsonErr == nil {
+			return &payload.Application, payload.AuditLog, nil
+		}
+	}
+
 	app, err := s.fetch(ctx, s.db, id)
 	if err != nil {
 		return nil, nil, err
@@ -127,6 +188,10 @@ func (s *Service) Get(ctx context.Context, id uuid.UUID) (*models.Application, [
 		return nil, nil, fmt.Errorf("loading audit log: %w", err)
 	}
 
+	if encoded, err := json.Marshal(cachedApplicationDetail{Application: *app, AuditLog: entries}); err == nil {
+		s.redis.Set(ctx, key, encoded, getCacheTTL)
+	}
+
 	return app, entries, nil
 }
 
@@ -134,6 +199,17 @@ func (s *Service) Get(ctx context.Context, id uuid.UUID) (*models.Application, [
 // their own applications; reviewers and admins see every application.
 // statusFilter, if non-empty, restricts the result to that status.
 func (s *Service) List(ctx context.Context, actorID uuid.UUID, actorRole workflow.Role, statusFilter string) ([]models.Application, error) {
+	scope := listScope(actorID, actorRole)
+	version, _ := s.redis.Get(ctx, listVersionKey(scope)).Int64()
+	key := listCacheKey(scope, statusFilter, version)
+
+	if cached, err := s.redis.Get(ctx, key).Bytes(); err == nil {
+		var apps []models.Application
+		if jsonErr := json.Unmarshal(cached, &apps); jsonErr == nil {
+			return apps, nil
+		}
+	}
+
 	q := s.db.WithContext(ctx).Model(&models.Application{})
 	if actorRole == workflow.RoleRequester {
 		q = q.Where("owner_id = ?", actorID)
@@ -146,6 +222,11 @@ func (s *Service) List(ctx context.Context, actorID uuid.UUID, actorRole workflo
 	if err := q.Order("created_at desc").Find(&apps).Error; err != nil {
 		return nil, fmt.Errorf("listing applications: %w", err)
 	}
+
+	if encoded, err := json.Marshal(apps); err == nil {
+		s.redis.Set(ctx, key, encoded, listCacheTTL)
+	}
+
 	return apps, nil
 }
 
@@ -174,6 +255,7 @@ func (s *Service) UpdateDraft(ctx context.Context, id uuid.UUID, actorID uuid.UU
 	if err := s.db.WithContext(ctx).Save(app).Error; err != nil {
 		return nil, fmt.Errorf("saving application: %w", err)
 	}
+	s.invalidateCaches(ctx, app)
 	return app, nil
 }
 
@@ -224,6 +306,7 @@ func (s *Service) Transition(ctx context.Context, id uuid.UUID, actorID uuid.UUI
 	if err != nil {
 		return nil, err
 	}
+	s.invalidateCaches(ctx, &result)
 	return &result, nil
 }
 

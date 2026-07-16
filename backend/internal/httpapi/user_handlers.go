@@ -1,8 +1,10 @@
 package httpapi
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"strings"
 	"time"
@@ -14,6 +16,24 @@ import (
 	"github.com/rohanb2005uk/submission-approval-workflow/backend/internal/models"
 	"github.com/rohanb2005uk/submission-approval-workflow/backend/internal/workflow"
 )
+
+// usersListCacheTTL bounds how long a cached user list can outlive the
+// version counter's reach - a garbage-collection safety net, not the
+// primary invalidation (that's the version bump on every write below).
+const usersListCacheTTL = 5 * time.Minute
+
+const usersListVersionKey = "cache:v:users"
+
+func usersListCacheKey(version int64) string {
+	return fmt.Sprintf("cache:users:list:v%d", version)
+}
+
+// invalidateUsersCache bumps the version counter so every previously cached
+// user list becomes unreachable immediately; old entries expire on their own
+// via usersListCacheTTL.
+func (h *handlers) invalidateUsersCache(ctx context.Context) {
+	h.redis.Incr(ctx, usersListVersionKey)
+}
 
 var validRoles = map[string]bool{
 	string(workflow.RoleRequester): true,
@@ -39,8 +59,20 @@ func toUserAdminResponse(u models.User) userAdminResponse {
 
 // listUsers returns every account, for the admin user-management view.
 func (h *handlers) listUsers(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	version, _ := h.redis.Get(ctx, usersListVersionKey).Int64()
+	key := usersListCacheKey(version)
+
+	if cached, err := h.redis.Get(ctx, key).Bytes(); err == nil {
+		var resp []userAdminResponse
+		if jsonErr := json.Unmarshal(cached, &resp); jsonErr == nil {
+			writeJSON(w, http.StatusOK, resp)
+			return
+		}
+	}
+
 	var users []models.User
-	if err := h.db.WithContext(r.Context()).Order("created_at asc").Find(&users).Error; err != nil {
+	if err := h.db.WithContext(ctx).Order("created_at asc").Find(&users).Error; err != nil {
 		writeError(w, http.StatusInternalServerError, "listing users")
 		return
 	}
@@ -49,6 +81,11 @@ func (h *handlers) listUsers(w http.ResponseWriter, r *http.Request) {
 	for i, u := range users {
 		resp[i] = toUserAdminResponse(u)
 	}
+
+	if encoded, err := json.Marshal(resp); err == nil {
+		h.redis.Set(ctx, key, encoded, usersListCacheTTL)
+	}
+
 	writeJSON(w, http.StatusOK, resp)
 }
 
@@ -99,6 +136,7 @@ func (h *handlers) createUser(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "creating user")
 		return
 	}
+	h.invalidateUsersCache(r.Context())
 
 	writeJSON(w, http.StatusCreated, toUserAdminResponse(user))
 }
@@ -147,6 +185,7 @@ func (h *handlers) updateUserRole(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	user.Role = req.Role
+	h.invalidateUsersCache(r.Context())
 
 	writeJSON(w, http.StatusOK, toUserAdminResponse(user))
 }
@@ -181,6 +220,7 @@ func (h *handlers) deleteUser(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, "user not found")
 		return
 	}
+	h.invalidateUsersCache(r.Context())
 
 	writeJSON(w, http.StatusNoContent, nil)
 }

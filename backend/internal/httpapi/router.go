@@ -24,7 +24,7 @@ func NewRouter(db *gorm.DB, redisClient *redis.Client, jwtSecret string, corsOri
 	h := &handlers{
 		db:        db,
 		redis:     redisClient,
-		apps:      applications.New(db),
+		apps:      applications.New(db, redisClient),
 		secret:    jwtSecret,
 		mailer:    mailSender,
 		enable2FA: enable2FA,
