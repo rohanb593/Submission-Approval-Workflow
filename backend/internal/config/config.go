@@ -9,6 +9,7 @@ import (
 type Config struct {
 	Port        string
 	DatabaseURL string
+	RedisURL    string
 	JWTSecret   string
 	CORSOrigin  string
 	// Enable2FA gates the email-OTP step of login. When false, login()
@@ -24,6 +25,7 @@ func Load() (Config, error) {
 	cfg := Config{
 		Port:         getEnv("PORT", "8080"),
 		DatabaseURL:  os.Getenv("DATABASE_URL"),
+		RedisURL:     getEnv("REDIS_URL", "redis://localhost:6379"),
 		JWTSecret:    os.Getenv("JWT_SECRET"),
 		CORSOrigin:   getEnv("CORS_ORIGIN", "http://localhost:3000"),
 		Enable2FA:    getEnv("ENABLE_2FA", "false") == "true",

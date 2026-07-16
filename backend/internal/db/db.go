@@ -54,9 +54,12 @@ func AutoMigrate(db *gorm.DB) error {
 	if err := db.Exec(normalizeLegacyRole).Error; err != nil {
 		return fmt.Errorf("normalizing legacy applicant role: %w", err)
 	}
+	// two_factor_challenges is no longer migrated - 2FA challenges now live in
+	// Redis (see internal/httpapi/auth_handlers.go). The old table is left
+	// in place rather than dropped here; it's inert, and dropping a table as
+	// a side effect of every deploy's auto-migrate is best done deliberately.
 	return db.AutoMigrate(
 		&models.User{},
-		&models.TwoFactorChallenge{},
 		&models.Application{},
 		&models.AuditLogEntry{},
 		&models.ActivityLogEntry{},

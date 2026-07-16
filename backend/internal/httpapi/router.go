@@ -9,6 +9,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	chimiddleware "github.com/go-chi/chi/v5/middleware"
+	"github.com/redis/go-redis/v9"
 	"gorm.io/gorm"
 
 	"github.com/rohanb2005uk/submission-approval-workflow/backend/internal/applications"
@@ -19,9 +20,10 @@ import (
 // NewRouter builds the complete HTTP router for the API. corsOrigin is the
 // single origin (e.g. the frontend's dev server URL) allowed to call this
 // API from a browser.
-func NewRouter(db *gorm.DB, jwtSecret string, corsOrigin string, mailSender mailer.Mailer, enable2FA bool) http.Handler {
+func NewRouter(db *gorm.DB, redisClient *redis.Client, jwtSecret string, corsOrigin string, mailSender mailer.Mailer, enable2FA bool) http.Handler {
 	h := &handlers{
 		db:        db,
+		redis:     redisClient,
 		apps:      applications.New(db),
 		secret:    jwtSecret,
 		mailer:    mailSender,

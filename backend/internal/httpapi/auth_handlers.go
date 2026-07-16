@@ -1,15 +1,17 @@
 package httpapi
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
 	"net/http"
+	"strconv"
 	"strings"
-	"time"
 
 	"github.com/google/uuid"
+	"github.com/redis/go-redis/v9"
 	"gorm.io/gorm"
 
 	"github.com/rohanb2005uk/submission-approval-workflow/backend/internal/auth"
@@ -42,6 +44,17 @@ type userResponse struct {
 	Role  string `json:"role"`
 }
 
+// loginRateLimitKey namespaces the failed-login counter for one email in
+// Redis. Lowercased so "User@x.com" and "user@x.com" share one counter.
+func loginRateLimitKey(email string) string {
+	return "ratelimit:login:" + strings.ToLower(email)
+}
+
+// otpChallengeKey namespaces a pending 2FA challenge's Redis hash.
+func otpChallengeKey(challengeID uuid.UUID) string {
+	return "otp:challenge:" + challengeID.String()
+}
+
 // login checks the user's password and, if it's correct, emails a 6-digit
 // code and returns a challenge ID rather than a token. The JWT is only
 // issued once that code is confirmed via verifyLogin.
@@ -56,9 +69,22 @@ func (h *handlers) login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	ctx := r.Context()
+	rateLimitKey := loginRateLimitKey(req.Email)
+
+	attempts, err := h.redis.Get(ctx, rateLimitKey).Int()
+	if err != nil && !errors.Is(err, redis.Nil) {
+		log.Printf("checking login rate limit for %s: %v", req.Email, err)
+	}
+	if attempts >= maxLoginAttempts {
+		writeError(w, http.StatusTooManyRequests, "too many failed login attempts - try again later")
+		return
+	}
+
 	var user models.User
-	err := h.db.WithContext(r.Context()).Where("email = ?", req.Email).First(&user).Error
+	err = h.db.WithContext(ctx).Where("email = ?", req.Email).First(&user).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
+		h.registerFailedLogin(ctx, rateLimitKey)
 		writeError(w, http.StatusUnauthorized, "invalid email or password")
 		return
 	}
@@ -68,8 +94,15 @@ func (h *handlers) login(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if !auth.CheckPassword(user.PasswordHash, req.Password) {
+		h.registerFailedLogin(ctx, rateLimitKey)
 		writeError(w, http.StatusUnauthorized, "invalid email or password")
 		return
+	}
+
+	// Correct password: clear the counter so a legitimate user who mistyped
+	// it a couple of times isn't left with a partially-used allowance.
+	if err := h.redis.Del(ctx, rateLimitKey).Err(); err != nil {
+		log.Printf("clearing login rate limit for %s: %v", req.Email, err)
 	}
 
 	if !h.enable2FA {
@@ -95,12 +128,17 @@ func (h *handlers) login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	challenge := models.TwoFactorChallenge{
-		UserID:    user.ID,
-		CodeHash:  auth.HashOTP(code),
-		ExpiresAt: time.Now().Add(otpTTL),
+	challengeID := uuid.New()
+	challengeKey := otpChallengeKey(challengeID)
+	if err := h.redis.HSet(ctx, challengeKey, map[string]any{
+		"user_id":   user.ID.String(),
+		"code_hash": auth.HashOTP(code),
+		"attempts":  0,
+	}).Err(); err != nil {
+		writeError(w, http.StatusInternalServerError, "creating verification challenge")
+		return
 	}
-	if err := h.db.WithContext(r.Context()).Create(&challenge).Error; err != nil {
+	if err := h.redis.Expire(ctx, challengeKey, otpTTL).Err(); err != nil {
 		writeError(w, http.StatusInternalServerError, "creating verification challenge")
 		return
 	}
@@ -115,7 +153,24 @@ func (h *handlers) login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	writeJSON(w, http.StatusOK, loginResponse{ChallengeID: challenge.ID.String()})
+	writeJSON(w, http.StatusOK, loginResponse{ChallengeID: challengeID.String()})
+}
+
+// registerFailedLogin increments the rate-limit counter for key, starting
+// its expiry window on the first failure in the current window. Redis being
+// unreachable fails open (logs and continues) rather than blocking login
+// entirely on a rate-limiter outage.
+func (h *handlers) registerFailedLogin(ctx context.Context, key string) {
+	n, err := h.redis.Incr(ctx, key).Result()
+	if err != nil {
+		log.Printf("recording failed login for %s: %v", key, err)
+		return
+	}
+	if n == 1 {
+		if err := h.redis.Expire(ctx, key, loginRateLimitWindow).Err(); err != nil {
+			log.Printf("setting login rate limit expiry for %s: %v", key, err)
+		}
+	}
 }
 
 // verifyLogin confirms the emailed code for a pending challenge and, on
@@ -136,26 +191,31 @@ func (h *handlers) verifyLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var challenge models.TwoFactorChallenge
-	err = h.db.WithContext(r.Context()).Where("id = ?", challengeID).First(&challenge).Error
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		writeError(w, http.StatusUnauthorized, "invalid or expired code")
-		return
-	}
+	ctx := r.Context()
+	challengeKey := otpChallengeKey(challengeID)
+
+	data, err := h.redis.HGetAll(ctx, challengeKey).Result()
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "looking up challenge")
 		return
 	}
-
-	if challenge.ConsumedAt != nil || time.Now().After(challenge.ExpiresAt) || challenge.Attempts >= maxOTPAttempts {
+	if len(data) == 0 {
+		// Redis returns an empty map for a missing key - covers both
+		// "never existed" and "expired", exactly like the old
+		// consumed/expired/not-found checks combined.
 		writeError(w, http.StatusUnauthorized, "invalid or expired code")
 		return
 	}
 
-	if !auth.CheckOTP(challenge.CodeHash, req.Code) {
-		if err := h.db.WithContext(r.Context()).
-			Model(&challenge).
-			Update("attempts", challenge.Attempts+1).Error; err != nil {
+	attempts, _ := strconv.Atoi(data["attempts"])
+	if attempts >= maxOTPAttempts {
+		h.redis.Del(ctx, challengeKey)
+		writeError(w, http.StatusUnauthorized, "invalid or expired code")
+		return
+	}
+
+	if !auth.CheckOTP(data["code_hash"], req.Code) {
+		if err := h.redis.HIncrBy(ctx, challengeKey, "attempts", 1).Err(); err != nil {
 			writeError(w, http.StatusInternalServerError, "recording attempt")
 			return
 		}
@@ -163,16 +223,21 @@ func (h *handlers) verifyLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	now := time.Now()
-	if err := h.db.WithContext(r.Context()).
-		Model(&challenge).
-		Update("consumed_at", now).Error; err != nil {
+	// Correct code: delete the challenge immediately so it can't be replayed
+	// even within its remaining TTL.
+	if err := h.redis.Del(ctx, challengeKey).Err(); err != nil {
 		writeError(w, http.StatusInternalServerError, "consuming challenge")
 		return
 	}
 
+	userID, err := uuid.Parse(data["user_id"])
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "reading challenge")
+		return
+	}
+
 	var user models.User
-	if err := h.db.WithContext(r.Context()).Where("id = ?", challenge.UserID).First(&user).Error; err != nil {
+	if err := h.db.WithContext(ctx).Where("id = ?", userID).First(&user).Error; err != nil {
 		writeError(w, http.StatusInternalServerError, "looking up user")
 		return
 	}

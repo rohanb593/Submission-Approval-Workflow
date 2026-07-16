@@ -10,6 +10,7 @@ import (
 	"github.com/rohanb2005uk/submission-approval-workflow/backend/internal/db"
 	"github.com/rohanb2005uk/submission-approval-workflow/backend/internal/httpapi"
 	"github.com/rohanb2005uk/submission-approval-workflow/backend/internal/mailer"
+	"github.com/rohanb2005uk/submission-approval-workflow/backend/internal/redis"
 )
 
 func main() {
@@ -33,12 +34,18 @@ func main() {
 	}
 	log.Println("schema migrated successfully")
 
+	redisClient, err := redis.Connect(cfg.RedisURL)
+	if err != nil {
+		log.Fatalf("connecting to redis: %v", err)
+	}
+	log.Println("connected to redis successfully")
+
 	mailSender := mailer.New(mailer.Config{
 		APIKey: cfg.ResendAPIKey,
 		From:   cfg.EmailFrom,
 	})
 
-	router := httpapi.NewRouter(conn, cfg.JWTSecret, cfg.CORSOrigin, mailSender, cfg.Enable2FA)
+	router := httpapi.NewRouter(conn, redisClient, cfg.JWTSecret, cfg.CORSOrigin, mailSender, cfg.Enable2FA)
 
 	log.Printf("listening on :%s", cfg.Port)
 	if err := http.ListenAndServe(":"+cfg.Port, router); err != nil {
