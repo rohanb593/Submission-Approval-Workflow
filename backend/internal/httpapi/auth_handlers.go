@@ -77,6 +77,7 @@ func (h *handlers) login(w http.ResponseWriter, r *http.Request) {
 		log.Printf("checking login rate limit for %s: %v", req.Email, err)
 	}
 	if attempts >= maxLoginAttempts {
+		h.recordSessionEvent(ctx, nil, req.Email, "", "login", false, r)
 		writeError(w, http.StatusTooManyRequests, "too many failed login attempts - try again later")
 		return
 	}
@@ -85,6 +86,7 @@ func (h *handlers) login(w http.ResponseWriter, r *http.Request) {
 	err = h.db.WithContext(ctx).Where("email = ?", req.Email).First(&user).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		h.registerFailedLogin(ctx, rateLimitKey)
+		h.recordSessionEvent(ctx, nil, req.Email, "", "login", false, r)
 		writeError(w, http.StatusUnauthorized, "invalid email or password")
 		return
 	}
@@ -95,6 +97,7 @@ func (h *handlers) login(w http.ResponseWriter, r *http.Request) {
 
 	if !auth.CheckPassword(user.PasswordHash, req.Password) {
 		h.registerFailedLogin(ctx, rateLimitKey)
+		h.recordSessionEvent(ctx, &user.ID, user.Email, user.Role, "login", false, r)
 		writeError(w, http.StatusUnauthorized, "invalid email or password")
 		return
 	}
@@ -111,6 +114,8 @@ func (h *handlers) login(w http.ResponseWriter, r *http.Request) {
 			writeError(w, http.StatusInternalServerError, "issuing token")
 			return
 		}
+		// No 2FA step follows, so the password check is the whole login.
+		h.recordSessionEvent(ctx, &user.ID, user.Email, user.Role, "login", true, r)
 		writeJSON(w, http.StatusOK, loginResponse{
 			Token: token,
 			User: &userResponse{
@@ -207,9 +212,27 @@ func (h *handlers) verifyLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Best-effort identity for logging a failed attempt below - if the
+	// challenge's user_id can't be resolved, the failure is simply not
+	// logged rather than recording a blank-identity row.
+	lookupChallengeUser := func() (*uuid.UUID, string, string) {
+		id, err := uuid.Parse(data["user_id"])
+		if err != nil {
+			return nil, "", ""
+		}
+		var u models.User
+		if err := h.db.WithContext(ctx).Where("id = ?", id).First(&u).Error; err != nil {
+			return nil, "", ""
+		}
+		return &u.ID, u.Email, u.Role
+	}
+
 	attempts, _ := strconv.Atoi(data["attempts"])
 	if attempts >= maxOTPAttempts {
 		h.redis.Del(ctx, challengeKey)
+		if uid, email, role := lookupChallengeUser(); email != "" {
+			h.recordSessionEvent(ctx, uid, email, role, "login", false, r)
+		}
 		writeError(w, http.StatusUnauthorized, "invalid or expired code")
 		return
 	}
@@ -218,6 +241,9 @@ func (h *handlers) verifyLogin(w http.ResponseWriter, r *http.Request) {
 		if err := h.redis.HIncrBy(ctx, challengeKey, "attempts", 1).Err(); err != nil {
 			writeError(w, http.StatusInternalServerError, "recording attempt")
 			return
+		}
+		if uid, email, role := lookupChallengeUser(); email != "" {
+			h.recordSessionEvent(ctx, uid, email, role, "login", false, r)
 		}
 		writeError(w, http.StatusUnauthorized, "invalid or expired code")
 		return
@@ -247,6 +273,7 @@ func (h *handlers) verifyLogin(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "issuing token")
 		return
 	}
+	h.recordSessionEvent(ctx, &user.ID, user.Email, user.Role, "login", true, r)
 
 	writeJSON(w, http.StatusOK, loginResponse{
 		Token: token,
@@ -256,4 +283,45 @@ func (h *handlers) verifyLogin(w http.ResponseWriter, r *http.Request) {
 			Role:  user.Role,
 		},
 	})
+}
+
+// recordSessionEvent writes one Session Audit row. Best-effort: a logging
+// failure is logged itself and otherwise ignored, since it must never block
+// or fail the login/logout it's recording.
+func (h *handlers) recordSessionEvent(
+	ctx context.Context,
+	userID *uuid.UUID,
+	email, role, event string,
+	success bool,
+	r *http.Request,
+) {
+	entry := models.SessionLogEntry{
+		UserID:    userID,
+		Email:     email,
+		Role:      role,
+		Event:     event,
+		Success:   success,
+		Browser:   browserFromUserAgent(r.UserAgent()),
+		IPAddress: clientIP(r),
+		UserAgent: r.UserAgent(),
+	}
+	if err := h.db.WithContext(ctx).Create(&entry).Error; err != nil {
+		log.Printf("session log: failed to record %s event: %v", event, err)
+	}
+}
+
+// logout records that the authenticated caller ended their session. The
+// frontend clears its local token regardless of this call's outcome, so a
+// failure here only means a missed audit row, never a stuck session.
+func (h *handlers) logout(w http.ResponseWriter, r *http.Request) {
+	actor, _ := actorFromContext(r.Context())
+
+	var user models.User
+	if err := h.db.WithContext(r.Context()).Where("id = ?", actor.UserID).First(&user).Error; err != nil {
+		writeError(w, http.StatusInternalServerError, "looking up user")
+		return
+	}
+
+	h.recordSessionEvent(r.Context(), &user.ID, user.Email, user.Role, "logout", true, r)
+	writeJSON(w, http.StatusNoContent, nil)
 }

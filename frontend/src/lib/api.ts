@@ -187,6 +187,10 @@ export function verifyLoginCode(challengeId: string, code: string) {
   });
 }
 
+export function logoutSession(token: string) {
+  return request<void>("/auth/logout", { method: "POST", token });
+}
+
 export function listApplications(token: string, params: ListApplicationsParams = {}) {
   const qs = new URLSearchParams();
   if (params.status) qs.set("status", params.status);
@@ -223,6 +227,97 @@ export function transitionApplication(
 
 export function listActivity(token: string) {
   return request<ActivityEntry[]>("/activity", { token });
+}
+
+export interface SubmissionAuditEntry {
+  id: string;
+  application_id: string;
+  application_title: string;
+  actor_id: string;
+  actor_email: string;
+  actor_role: string;
+  from_status: string;
+  to_status: string;
+  comment: string | null;
+  created_at: string;
+}
+
+export interface SessionAuditEntry {
+  id: string;
+  user_id: string | null;
+  email: string;
+  role: string;
+  event: "login" | "logout";
+  success: boolean;
+  browser: string;
+  ip_address: string;
+  user_agent: string;
+  created_at: string;
+}
+
+export interface SystemAuditEntry {
+  id: string;
+  event: string;
+  resource_type: string;
+  resource_label: string;
+  actor_id: string;
+  actor_email: string;
+  actor_role: string;
+  created_at: string;
+}
+
+interface AuditListParams {
+  search?: string;
+  page?: number;
+  pageSize?: number;
+}
+
+interface AuditListResult<T> {
+  entries: T[];
+  total: number;
+  page: number;
+  page_size: number;
+}
+
+function auditQuery(params: Record<string, string | number | undefined>) {
+  const qs = new URLSearchParams();
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== undefined && value !== "") qs.set(key, String(value));
+  }
+  return qs.toString();
+}
+
+export function listSubmissionAudit(token: string, params: AuditListParams = {}) {
+  const qs = auditQuery({
+    search: params.search,
+    page: params.page ?? 1,
+    page_size: params.pageSize ?? 20,
+  });
+  return request<AuditListResult<SubmissionAuditEntry>>(`/admin/audit/submissions?${qs}`, { token });
+}
+
+export function listSessionAudit(
+  token: string,
+  params: AuditListParams & { event?: "login" | "logout" | ""; result?: "success" | "failed" | "" } = {},
+) {
+  const qs = auditQuery({
+    search: params.search,
+    event: params.event,
+    result: params.result,
+    page: params.page ?? 1,
+    page_size: params.pageSize ?? 20,
+  });
+  return request<AuditListResult<SessionAuditEntry>>(`/admin/audit/sessions?${qs}`, { token });
+}
+
+export function listSystemAudit(token: string, params: AuditListParams & { event?: string } = {}) {
+  const qs = auditQuery({
+    search: params.search,
+    event: params.event,
+    page: params.page ?? 1,
+    page_size: params.pageSize ?? 20,
+  });
+  return request<AuditListResult<SystemAuditEntry>>(`/admin/audit/system?${qs}`, { token });
 }
 
 export function listNotifications(token: string) {

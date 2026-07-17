@@ -71,6 +71,47 @@ func (ActivityLogEntry) TableName() string {
 	return "activity_log"
 }
 
+// SessionLogEntry records one login or logout event, for the admin-only
+// Session Audit view. UserID/Role are nullable/blank because a failed login
+// (unknown email or wrong password) never resolves to a real account, and
+// even when it does, the email/role are captured as they were at the time
+// rather than joined live - so a later role change or account deletion
+// doesn't rewrite history.
+type SessionLogEntry struct {
+	ID        uuid.UUID  `gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
+	UserID    *uuid.UUID `gorm:"type:uuid;index"`
+	Email     string     `gorm:"not null"`
+	Role      string
+	Event     string `gorm:"not null;check:event IN ('login','logout')"`
+	Success   bool   `gorm:"not null"`
+	Browser   string
+	IPAddress string
+	UserAgent string
+	CreatedAt time.Time `gorm:"index"`
+}
+
+func (SessionLogEntry) TableName() string {
+	return "session_log"
+}
+
+// SystemAuditLogEntry records an administrative action (user/role
+// management), for the admin-only System Audit view. ResourceLabel is
+// denormalized (the affected email at the time) for the same reason as
+// SessionLogEntry.Email - it must survive the resource being deleted later.
+type SystemAuditLogEntry struct {
+	ID            uuid.UUID `gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
+	ActorID       uuid.UUID `gorm:"type:uuid;not null;index"`
+	Actor         User      `gorm:"foreignKey:ActorID;references:ID;constraint:OnDelete:RESTRICT"`
+	Event         string    `gorm:"not null"`
+	ResourceType  string    `gorm:"not null"`
+	ResourceLabel string    `gorm:"not null"`
+	CreatedAt     time.Time `gorm:"index"`
+}
+
+func (SystemAuditLogEntry) TableName() string {
+	return "system_audit_log"
+}
+
 // Notification is an in-app notification delivered to one user, created
 // whenever an application they care about changes status: the owner is
 // notified of a decision on their submission, and reviewers/admins are

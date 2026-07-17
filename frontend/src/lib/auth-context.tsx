@@ -73,8 +73,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   function logout() {
+    // Snapshot the token before clearing local state: the UI should log the
+    // user out immediately regardless of whether this network call
+    // succeeds, so it's fire-and-forget rather than awaited.
+    const token = session?.token;
     localStorage.removeItem(STORAGE_KEY);
     setSession(null);
+    if (token) {
+      api.logoutSession(token).catch(() => {
+        // Best-effort: a missed logout audit row must never block sign-out.
+      });
+    }
   }
 
   return (

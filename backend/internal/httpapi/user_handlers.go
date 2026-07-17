@@ -5,12 +5,15 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log"
 	"net/http"
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgconn"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 
 	"github.com/rohanb2005uk/submission-approval-workflow/backend/internal/auth"
 	"github.com/rohanb2005uk/submission-approval-workflow/backend/internal/models"
@@ -99,6 +102,8 @@ type createUserRequest struct {
 // self-signup, so an admin creates every user directly with an initial
 // password.
 func (h *handlers) createUser(w http.ResponseWriter, r *http.Request) {
+	actor, _ := actorFromContext(r.Context())
+
 	var req createUserRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, "invalid JSON body")
@@ -137,6 +142,7 @@ func (h *handlers) createUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.invalidateUsersCache(r.Context())
+	h.recordSystemAuditEvent(r.Context(), actor.UserID, "user.created", "USER", user.Email)
 
 	writeJSON(w, http.StatusCreated, toUserAdminResponse(user))
 }
@@ -186,6 +192,7 @@ func (h *handlers) updateUserRole(w http.ResponseWriter, r *http.Request) {
 	}
 	user.Role = req.Role
 	h.invalidateUsersCache(r.Context())
+	h.recordSystemAuditEvent(r.Context(), actor.UserID, "user.role_changed", "USER", user.Email)
 
 	writeJSON(w, http.StatusOK, toUserAdminResponse(user))
 }
@@ -207,7 +214,12 @@ func (h *handlers) deleteUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	result := h.db.WithContext(r.Context()).Delete(&models.User{}, "id = ?", id)
+	// Clauses(clause.Returning{}) gets the row's data back from the DELETE
+	// itself (RETURNING *), rather than a separate lookup query, so the
+	// email is available for the system audit entry below even though the
+	// row is already gone by the time we'd otherwise fetch it.
+	var deleted models.User
+	result := h.db.WithContext(r.Context()).Clauses(clause.Returning{}).Where("id = ?", id).Delete(&deleted)
 	if result.Error != nil {
 		if isForeignKeyViolation(result.Error) {
 			writeError(w, http.StatusConflict, "cannot delete a user with existing applications or activity history")
@@ -221,8 +233,24 @@ func (h *handlers) deleteUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	h.invalidateUsersCache(r.Context())
+	h.recordSystemAuditEvent(r.Context(), actor.UserID, "user.deleted", "USER", deleted.Email)
 
 	writeJSON(w, http.StatusNoContent, nil)
+}
+
+// recordSystemAuditEvent writes one System Audit row for an administrative
+// action. Best-effort, matching recordSessionEvent: a logging failure must
+// never fail the admin action it's recording.
+func (h *handlers) recordSystemAuditEvent(ctx context.Context, actorID uuid.UUID, event, resourceType, resourceLabel string) {
+	entry := models.SystemAuditLogEntry{
+		ActorID:       actorID,
+		Event:         event,
+		ResourceType:  resourceType,
+		ResourceLabel: resourceLabel,
+	}
+	if err := h.db.WithContext(ctx).Create(&entry).Error; err != nil {
+		log.Printf("system audit log: failed to record %s event: %v", event, err)
+	}
 }
 
 func isUniqueViolation(err error) bool {

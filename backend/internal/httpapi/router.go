@@ -47,6 +47,11 @@ func NewRouter(db *gorm.DB, redisClient *redis.Client, jwtSecret string, corsOri
 	r.Post("/auth/login", h.login)
 	r.Post("/auth/login/verify", h.verifyLogin)
 
+	r.Route("/auth/logout", func(r chi.Router) {
+		r.Use(RequireAuth(jwtSecret))
+		r.Post("/", h.logout)
+	})
+
 	r.Route("/applications", func(r chi.Router) {
 		r.Use(RequireAuth(jwtSecret))
 		r.Use(h.LogActivity)
@@ -80,6 +85,16 @@ func NewRouter(db *gorm.DB, redisClient *redis.Client, jwtSecret string, corsOri
 		r.Use(RequireRole(workflow.RoleAdmin))
 
 		r.Get("/", h.listActivity)
+	})
+
+	r.Route("/admin/audit", func(r chi.Router) {
+		r.Use(RequireAuth(jwtSecret))
+		r.Use(h.LogActivity)
+		r.Use(RequireRole(workflow.RoleAdmin))
+
+		r.Get("/submissions", h.listSubmissionAudit)
+		r.Get("/sessions", h.listSessionAudit)
+		r.Get("/system", h.listSystemAudit)
 	})
 
 	r.Route("/admin/users", func(r chi.Router) {
