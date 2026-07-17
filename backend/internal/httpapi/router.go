@@ -18,11 +18,12 @@ import (
 	"github.com/rohanb2005uk/submission-approval-workflow/backend/internal/workflow"
 )
 
-// NewRouter builds the complete HTTP router for the API. corsOrigin is the
-// single origin (e.g. the frontend's dev server URL) allowed to call this
-// API from a browser. enableEmailNotifications gates whether a status
-// change also sends an email in addition to its always-created in-app
-// Notification row (see internal/applications.Service.Transition).
+// NewRouter builds the complete HTTP router for the API. corsOrigin is a
+// comma-separated list of origins (e.g. the frontend's dev server URL, or
+// several Vercel domains in production) allowed to call this API from a
+// browser. enableEmailNotifications gates whether a status change also sends
+// an email in addition to its always-created in-app Notification row (see
+// internal/applications.Service.Transition).
 func NewRouter(db *gorm.DB, redisClient *redis.Client, jwtSecret string, corsOrigin string, mailSender mailer.Mailer, enable2FA bool, enableEmailNotifications bool) http.Handler {
 	h := &handlers{
 		db:            db,

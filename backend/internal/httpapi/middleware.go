@@ -40,10 +40,28 @@ func RequireAuth(secret string) func(http.Handler) http.Handler {
 // development, e.g. localhost:3000 vs the API's localhost:8080) to call this
 // API from the browser. It responds to preflight OPTIONS requests directly
 // rather than passing them on to the router.
-func CORS(allowedOrigin string) func(http.Handler) http.Handler {
+//
+// allowedOrigins is a comma-separated list rather than a single value because
+// Vercel serves the same frontend on several stable domains at once (a custom
+// alias, the default project domain, and the git-branch domain) - hardcoding
+// one origin here means every request from the others gets silently dropped
+// by the browser's CORS check, surfacing as "could not reach the server" on
+// the frontend even though the API is up.
+func CORS(allowedOrigins string) func(http.Handler) http.Handler {
+	allowed := make(map[string]bool)
+	for _, origin := range strings.Split(allowedOrigins, ",") {
+		if origin = strings.TrimSpace(origin); origin != "" {
+			allowed[origin] = true
+		}
+	}
+
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			w.Header().Set("Access-Control-Allow-Origin", allowedOrigin)
+			origin := r.Header.Get("Origin")
+			if allowed[origin] {
+				w.Header().Set("Access-Control-Allow-Origin", origin)
+				w.Header().Set("Vary", "Origin")
+			}
 			w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
 			w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
 			if r.Method == http.MethodOptions {

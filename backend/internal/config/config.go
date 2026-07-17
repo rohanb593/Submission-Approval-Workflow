@@ -11,7 +11,9 @@ type Config struct {
 	DatabaseURL string
 	RedisURL    string
 	JWTSecret   string
-	CORSOrigin  string
+	// CORSOrigin is a comma-separated list of allowed browser origins - see
+	// httpapi.CORS for why this isn't a single value.
+	CORSOrigin string
 	// Enable2FA gates the email-OTP step of login. When false, login()
 	// issues a token immediately after the password check instead of
 	// creating a challenge and emailing a code; verifyLogin and the rest of
