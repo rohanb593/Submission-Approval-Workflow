@@ -8,11 +8,20 @@ const STYLES: Record<Status, string> = {
   REJECTED: "bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300",
 };
 
+const DOT_STYLES: Record<Status, string> = {
+  DRAFT: "bg-zinc-500",
+  SUBMITTED: "bg-blue-500",
+  UNDER_REVIEW: "bg-amber-500",
+  APPROVED: "bg-green-500",
+  REJECTED: "bg-red-500",
+};
+
 export function StatusBadge({ status }: { status: Status }) {
   return (
     <span
-      className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${STYLES[status]}`}
+      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium ${STYLES[status]}`}
     >
+      <span className={`h-1.5 w-1.5 rounded-full ${DOT_STYLES[status]}`} />
       {status.replace("_", " ")}
     </span>
   );

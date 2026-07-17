@@ -2,6 +2,7 @@
 
 import { FormEvent, useState } from "react";
 import { ApiError, Role } from "@/lib/api";
+import { Select } from "@/components/Select";
 
 const ROLES: Role[] = ["requester", "reviewer", "admin"];
 
@@ -100,17 +101,13 @@ export function CreateUserModal({
             <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
               Role
             </label>
-            <select
-              value={role}
-              onChange={(e) => setRole(e.target.value as Role)}
-              className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm capitalize text-zinc-900 focus:border-orange-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-50"
-            >
+            <Select value={role} onChange={(e) => setRole(e.target.value as Role)} className="capitalize">
               {ROLES.map((r) => (
                 <option key={r} value={r}>
                   {r}
                 </option>
               ))}
-            </select>
+            </Select>
             {fieldErrors.role && (
               <p className="mt-1 text-xs text-red-600 dark:text-red-400">{fieldErrors.role}</p>
             )}

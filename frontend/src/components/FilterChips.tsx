@@ -1,3 +1,5 @@
+import { FilterIcon } from "@/components/icons";
+
 interface FilterChipsProps<T extends string> {
   options: { label: string; value: T }[];
   value: T;
@@ -6,7 +8,8 @@ interface FilterChipsProps<T extends string> {
 
 export function FilterChips<T extends string>({ options, value, onChange }: FilterChipsProps<T>) {
   return (
-    <div className="mb-6 flex flex-wrap gap-2">
+    <div className="mb-6 flex flex-wrap items-center gap-2">
+      <FilterIcon className="mr-1 h-4 w-4 shrink-0 text-zinc-400" />
       {options.map((opt) => (
         <button
           key={opt.label}

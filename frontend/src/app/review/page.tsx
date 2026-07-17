@@ -11,6 +11,7 @@ import { FilterChips } from "@/components/FilterChips";
 import { SearchInput } from "@/components/SearchInput";
 import { Pagination } from "@/components/Pagination";
 import { SubmissionTable } from "@/components/SubmissionTable";
+import { InboxIcon, ClockIcon, CheckCircleIcon, XCircleIcon } from "@/components/icons";
 
 type LoadState =
   | { status: "loading" }
@@ -109,10 +110,10 @@ export default function ReviewDashboard() {
         />
 
         <div className="mb-8 grid grid-cols-2 gap-4 sm:grid-cols-4">
-          <StatCard label="Total" value={stats.total} accent="zinc" />
-          <StatCard label="Needs Review" value={stats.needsReview} accent="amber" />
-          <StatCard label="Approved" value={stats.approved} accent="green" />
-          <StatCard label="Rejected" value={stats.rejected} accent="red" />
+          <StatCard label="Total" value={stats.total} accent="zinc" icon={InboxIcon} />
+          <StatCard label="Needs Review" value={stats.needsReview} accent="amber" icon={ClockIcon} />
+          <StatCard label="Approved" value={stats.approved} accent="green" icon={CheckCircleIcon} />
+          <StatCard label="Rejected" value={stats.rejected} accent="red" icon={XCircleIcon} />
         </div>
 
         <SearchInput value={search} onChange={handleSearchChange} placeholder="Search by title or description..." />

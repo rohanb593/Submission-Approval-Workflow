@@ -6,7 +6,15 @@ function formatUpdated(iso: string) {
   return new Date(iso).toLocaleString();
 }
 
-export function SubmissionTable({ applications }: { applications: Application[] }) {
+interface SubmissionTableProps {
+  applications: Application[];
+  // True only when every row is guaranteed to belong to the signed-in user
+  // (the requester's own "My Submissions" list) - the reviewer/admin view
+  // mixes owners and only has owner_id (a UUID), which isn't worth showing.
+  showOwner?: boolean;
+}
+
+export function SubmissionTable({ applications, showOwner = false }: SubmissionTableProps) {
   return (
     <div className="overflow-hidden rounded-xl border border-zinc-200 shadow-sm dark:border-zinc-800">
       <div className="overflow-x-auto">
@@ -33,6 +41,14 @@ export function SubmissionTable({ applications }: { applications: Application[] 
                       <span className="ml-2 text-xs text-zinc-500 dark:text-zinc-400">
                         ${app.amount.toFixed(2)}
                       </span>
+                    )}
+                    {app.description && (
+                      <p className="mt-0.5 line-clamp-1 max-w-md text-xs text-zinc-500 dark:text-zinc-400">
+                        {app.description}
+                      </p>
+                    )}
+                    {showOwner && (
+                      <p className="mt-0.5 text-xs text-zinc-400 dark:text-zinc-500">Owner: You</p>
                     )}
                   </Link>
                 </td>

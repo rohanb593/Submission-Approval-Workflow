@@ -10,6 +10,7 @@ import { StatCard } from "@/components/StatCard";
 import { SearchInput } from "@/components/SearchInput";
 import { Pagination } from "@/components/Pagination";
 import { ActivityDetailModal } from "@/components/ActivityDetailModal";
+import { InboxIcon, AlertTriangleIcon, UsersIcon, ClockIcon } from "@/components/icons";
 
 type LoadState =
   | { status: "loading" }
@@ -110,10 +111,10 @@ export default function ActivityAuditPage() {
         />
 
         <div className="mb-8 grid grid-cols-2 gap-4 sm:grid-cols-4">
-          <StatCard label="Total Events" value={stats.total} accent="zinc" />
-          <StatCard label="Errors" value={stats.errors} accent="red" />
-          <StatCard label="Unique Actors" value={stats.uniqueActors} accent="orange" />
-          <StatCard label="Avg Duration" value={stats.avgDuration} accent="amber" />
+          <StatCard label="Total Events" value={stats.total} accent="zinc" icon={InboxIcon} />
+          <StatCard label="Errors" value={stats.errors} accent="red" icon={AlertTriangleIcon} />
+          <StatCard label="Unique Actors" value={stats.uniqueActors} accent="orange" icon={UsersIcon} />
+          <StatCard label="Avg Duration" value={stats.avgDuration} accent="amber" icon={ClockIcon} />
         </div>
 
         <SearchInput

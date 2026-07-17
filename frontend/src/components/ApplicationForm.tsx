@@ -2,6 +2,7 @@
 
 import { useState, FormEvent } from "react";
 import { ApiError, ApplicationInput } from "@/lib/api";
+import { Select } from "@/components/Select";
 
 const CATEGORIES = ["travel", "equipment", "training", "other"] as const;
 
@@ -88,18 +89,14 @@ export function ApplicationForm({
         <label className="mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
           Category
         </label>
-        <select
-          value={values.category}
-          onChange={(e) => setField("category", e.target.value)}
-          className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-orange-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-50"
-        >
+        <Select value={values.category} onChange={(e) => setField("category", e.target.value)}>
           <option value="">Select a category&hellip;</option>
           {CATEGORIES.map((c) => (
             <option key={c} value={c}>
               {c[0].toUpperCase() + c.slice(1)}
             </option>
           ))}
-        </select>
+        </Select>
         {fieldErrors.category && (
           <p className="mt-1 text-sm text-red-600 dark:text-red-400">{fieldErrors.category}</p>
         )}

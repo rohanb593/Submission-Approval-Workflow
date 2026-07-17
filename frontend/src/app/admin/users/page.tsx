@@ -15,6 +15,7 @@ import {
 import { AppShell } from "@/components/AppShell";
 import { PageHeader } from "@/components/PageHeader";
 import { CreateUserModal } from "@/components/CreateUserModal";
+import { Select } from "@/components/Select";
 
 const ROLES: Role[] = ["requester", "reviewer", "admin"];
 
@@ -166,18 +167,19 @@ export default function UserManagementPage() {
                           )}
                         </td>
                         <td className="px-4 py-3.5">
-                          <select
+                          <Select
                             value={u.role}
                             disabled={isSelf || isPending}
                             onChange={(e) => handleRoleChange(u.id, e.target.value as Role)}
-                            className="rounded-md border border-zinc-300 px-2 py-1 text-sm capitalize text-zinc-900 transition-colors focus:border-orange-500 focus:outline-none disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-50"
+                            wrapperClassName="w-36"
+                            className="py-1.5 capitalize"
                           >
                             {ROLES.map((r) => (
                               <option key={r} value={r}>
                                 {r}
                               </option>
                             ))}
-                          </select>
+                          </Select>
                         </td>
                         <td className="px-4 py-3.5 text-zinc-500 dark:text-zinc-400">
                           {formatDate(u.created_at)}

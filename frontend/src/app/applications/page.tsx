@@ -12,6 +12,7 @@ import { FilterChips } from "@/components/FilterChips";
 import { SearchInput } from "@/components/SearchInput";
 import { Pagination } from "@/components/Pagination";
 import { SubmissionTable } from "@/components/SubmissionTable";
+import { InboxIcon, PencilIcon, ClockIcon, CheckCircleIcon } from "@/components/icons";
 
 type LoadState =
   | { status: "loading" }
@@ -113,10 +114,10 @@ export default function ApplicantDashboard() {
         />
 
         <div className="mb-8 grid grid-cols-2 gap-4 sm:grid-cols-4">
-          <StatCard label="Total" value={stats.total} accent="zinc" />
-          <StatCard label="Draft" value={stats.draft} accent="amber" />
-          <StatCard label="In Review" value={stats.inReview} accent="orange" />
-          <StatCard label="Approved" value={stats.approved} accent="green" />
+          <StatCard label="Total" value={stats.total} accent="zinc" icon={InboxIcon} />
+          <StatCard label="Draft" value={stats.draft} accent="amber" icon={PencilIcon} />
+          <StatCard label="In Review" value={stats.inReview} accent="orange" icon={ClockIcon} />
+          <StatCard label="Approved" value={stats.approved} accent="green" icon={CheckCircleIcon} />
         </div>
 
         <SearchInput value={search} onChange={handleSearchChange} placeholder="Search by title or description..." />
@@ -143,7 +144,7 @@ export default function ApplicantDashboard() {
 
         {state.status === "ready" && state.applications.length > 0 && (
           <>
-            <SubmissionTable applications={state.applications} />
+            <SubmissionTable applications={state.applications} showOwner />
             <Pagination page={page} pageSize={PAGE_SIZE} total={state.total} onPageChange={handlePageChange} />
           </>
         )}
