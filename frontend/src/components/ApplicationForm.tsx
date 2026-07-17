@@ -148,7 +148,7 @@ export function ApplicationForm({
       <button
         type="submit"
         disabled={submitting}
-        className="self-start rounded-md bg-orange-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-orange-500 disabled:cursor-not-allowed disabled:opacity-50"
+        className="self-start rounded-md bg-orange-600 px-4 py-2 text-sm font-medium text-white transition-all duration-150 hover:bg-orange-500 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100"
       >
         {submitting ? "Saving..." : submitLabel}
       </button>

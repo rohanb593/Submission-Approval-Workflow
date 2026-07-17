@@ -97,7 +97,7 @@ export default function ReviewDashboard() {
 
   return (
     <AppShell>
-      <main className="mx-auto w-full max-w-4xl px-8 py-10">
+      <main className="mx-auto w-full max-w-7xl px-8 py-10">
         <PageHeader
           eyebrow={isAdmin ? "Admin Dashboard" : "Reviewer Dashboard"}
           title={isAdmin ? "All Submissions" : "Review Queue"}

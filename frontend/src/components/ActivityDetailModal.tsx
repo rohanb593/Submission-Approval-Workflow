@@ -30,11 +30,11 @@ export function ActivityDetailModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 p-6"
+      className="animate-fade-in fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 p-6"
       onClick={onClose}
     >
       <div
-        className="mt-12 w-full max-w-lg rounded-lg bg-white p-6 shadow-xl dark:bg-zinc-900"
+        className="animate-scale-in mt-12 w-full max-w-lg rounded-lg bg-white p-6 shadow-xl dark:bg-zinc-900"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-start justify-between gap-4">

@@ -41,11 +41,11 @@ export function CreateUserModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 p-6"
+      className="animate-fade-in fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/50 p-6"
       onClick={onClose}
     >
       <div
-        className="mt-12 w-full max-w-md rounded-lg bg-white p-6 shadow-xl dark:bg-zinc-900"
+        className="animate-scale-in mt-12 w-full max-w-md rounded-lg bg-white p-6 shadow-xl dark:bg-zinc-900"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-start justify-between gap-4">
@@ -133,7 +133,7 @@ export function CreateUserModal({
             <button
               type="submit"
               disabled={isSubmitting}
-              className="rounded-md bg-orange-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-orange-500 disabled:opacity-50"
+              className="rounded-md bg-orange-600 px-3 py-1.5 text-sm font-medium text-white transition-all duration-150 hover:bg-orange-500 active:scale-[0.97] disabled:opacity-50 disabled:active:scale-100"
             >
               {isSubmitting ? "Creating..." : "Create User"}
             </button>

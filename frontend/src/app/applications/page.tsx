@@ -97,7 +97,7 @@ export default function ApplicantDashboard() {
 
   return (
     <AppShell>
-      <main className="mx-auto w-full max-w-4xl px-8 py-10">
+      <main className="mx-auto w-full max-w-7xl px-8 py-10">
         <PageHeader
           eyebrow="Requester Dashboard"
           title="My Submissions"
@@ -105,7 +105,7 @@ export default function ApplicantDashboard() {
           action={
             <Link
               href="/applications/new"
-              className="rounded-md bg-orange-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-orange-500"
+              className="inline-block rounded-md bg-orange-600 px-4 py-2 text-sm font-medium text-white transition-all duration-150 hover:bg-orange-500 active:scale-[0.97]"
             >
               New Application
             </Link>

@@ -95,7 +95,7 @@ export default function ApplicationDetailPage() {
 
   return (
     <AppShell>
-      <main className="mx-auto w-full max-w-5xl px-8 py-10">
+      <main className="mx-auto w-full max-w-6xl px-8 py-10">
         <Link
           href={dashboardPathFor(user.role)}
           className="mb-6 inline-block text-sm text-zinc-500 hover:underline dark:text-zinc-400"

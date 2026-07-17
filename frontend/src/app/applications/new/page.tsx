@@ -23,7 +23,7 @@ export default function NewApplicationPage() {
 
   return (
     <AppShell>
-      <main className="mx-auto w-full max-w-lg px-8 py-10">
+      <main className="mx-auto w-full max-w-xl px-8 py-10">
         <Link
           href="/applications"
           className="mb-6 inline-block text-sm text-zinc-500 hover:underline dark:text-zinc-400"
