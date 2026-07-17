@@ -32,6 +32,12 @@ const maxLoginAttempts = 5
 // Redis expires it and the email gets a clean slate.
 const loginRateLimitWindow = 15 * time.Minute
 
+// maxSignupAttempts/signupRateLimitWindow bound how many accounts one IP can
+// attempt to create in a window - signup has no auth to gate it, so without
+// this it's an open door to account-creation spam.
+const maxSignupAttempts = 5
+const signupRateLimitWindow = 15 * time.Minute
+
 // handlers holds the dependencies shared by every HTTP handler.
 type handlers struct {
 	db            *gorm.DB

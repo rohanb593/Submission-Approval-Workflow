@@ -3,7 +3,7 @@
 import { useEffect, useState, FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth-context";
-import { ApiError } from "@/lib/api";
+import { ApiError, signup as signupRequest } from "@/lib/api";
 import { dashboardPathFor } from "@/lib/roles";
 
 function BrandMark({ className = "", dark = false }: { className?: string; dark?: boolean }) {
@@ -60,12 +60,15 @@ function BrandPanel() {
 export default function LoginPage() {
   const router = useRouter();
   const { user, isLoading, login, verifyCode } = useAuth();
+  const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [code, setCode] = useState("");
   const [challengeId, setChallengeId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
@@ -74,22 +77,63 @@ export default function LoginPage() {
     }
   }, [isLoading, user, router]);
 
+  // Shared by sign-in and "just signed up" - both end the same way: call
+  // login() and either land on the dashboard directly or move to the 2FA
+  // step, exactly as a normal sign-in would.
+  async function establishSession(emailToUse: string, passwordToUse: string) {
+    const result = await login(emailToUse, passwordToUse);
+    if (result.user) {
+      router.replace(dashboardPathFor(result.user.role));
+    } else {
+      setChallengeId(result.challengeId);
+    }
+  }
+
   async function handlePasswordSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
     setSubmitting(true);
     try {
-      const result = await login(email, password);
-      if (result.user) {
-        router.replace(dashboardPathFor(result.user.role));
-      } else {
-        setChallengeId(result.challengeId);
-      }
+      await establishSession(email, password);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Unable to log in. Please try again.");
     } finally {
       setSubmitting(false);
     }
+  }
+
+  async function handleSignupSubmit(e: FormEvent) {
+    e.preventDefault();
+    setError(null);
+    setFieldErrors({});
+    if (password !== confirmPassword) {
+      setFieldErrors({ confirmPassword: "Passwords do not match" });
+      return;
+    }
+    setSubmitting(true);
+    try {
+      // signup() only provisions the account, always as a requester - it
+      // returns no session, so establishSession() signs the new account in
+      // immediately afterward, going through 2FA the same way any sign-in does.
+      await signupRequest(email, password);
+      await establishSession(email, password);
+    } catch (err) {
+      if (err instanceof ApiError && err.fields) {
+        setFieldErrors(err.fields);
+      } else {
+        setError(err instanceof ApiError ? err.message : "Unable to create your account. Please try again.");
+      }
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  function switchMode(next: "signin" | "signup") {
+    setMode(next);
+    setError(null);
+    setFieldErrors({});
+    setPassword("");
+    setConfirmPassword("");
   }
 
   async function handleCodeSubmit(e: FormEvent) {
@@ -173,7 +217,7 @@ export default function LoginPage() {
               Back to sign in
             </button>
           </form>
-        ) : (
+        ) : mode === "signin" ? (
           <form onSubmit={handlePasswordSubmit} className="w-full max-w-sm">
             <p className="text-xs font-semibold uppercase tracking-widest text-orange-600 dark:text-orange-400">
               Welcome back
@@ -224,9 +268,109 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={submitting}
-              className="w-full rounded-lg bg-orange-600 px-4 py-2.5 text-sm font-semibold text-white transition-all duration-150 hover:bg-orange-500 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100"
+              className="mb-3 w-full rounded-lg bg-orange-600 px-4 py-2.5 text-sm font-semibold text-white transition-all duration-150 hover:bg-orange-500 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100"
             >
               {submitting ? "Signing in..." : "Sign in"}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => switchMode("signup")}
+              className="w-full text-center text-sm text-zinc-500 dark:text-zinc-400"
+            >
+              Don&apos;t have an account?{" "}
+              <span className="font-medium text-orange-600 hover:underline dark:text-orange-400">Sign up</span>
+            </button>
+          </form>
+        ) : (
+          <form onSubmit={handleSignupSubmit} className="w-full max-w-sm">
+            <p className="text-xs font-semibold uppercase tracking-widest text-orange-600 dark:text-orange-400">
+              Get started
+            </p>
+            <h2 className="mb-6 mt-1 text-2xl font-bold text-zinc-900 dark:text-zinc-50">
+              Create your account
+            </h2>
+
+            <label className="mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+              Email
+            </label>
+            <input
+              type="email"
+              required
+              autoComplete="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="mb-1 w-full rounded-lg border border-zinc-300 px-3.5 py-2.5 text-sm text-zinc-900 transition-colors focus:border-orange-500 focus:outline-none focus:ring-4 focus:ring-orange-500/15 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-50"
+            />
+            {fieldErrors.email && (
+              <p className="mb-3 text-xs text-red-600 dark:text-red-400">{fieldErrors.email}</p>
+            )}
+
+            <label className="mb-1 mt-3 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+              Password
+            </label>
+            <div className="relative mb-1">
+              <input
+                type={showPassword ? "text" : "password"}
+                required
+                autoComplete="new-password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full rounded-lg border border-zinc-300 px-3.5 py-2.5 pr-16 text-sm text-zinc-900 transition-colors focus:border-orange-500 focus:outline-none focus:ring-4 focus:ring-orange-500/15 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-50"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((v) => !v)}
+                className="absolute inset-y-0 right-0 px-3.5 text-xs font-medium text-zinc-500 hover:text-orange-600 dark:text-zinc-400 dark:hover:text-orange-400"
+              >
+                {showPassword ? "Hide" : "Show"}
+              </button>
+            </div>
+            {fieldErrors.password && (
+              <p className="mb-3 text-xs text-red-600 dark:text-red-400">{fieldErrors.password}</p>
+            )}
+            <p className="mb-4 text-xs text-zinc-400 dark:text-zinc-500">At least 8 characters.</p>
+
+            <label className="mb-1 block text-sm font-medium text-zinc-700 dark:text-zinc-300">
+              Confirm password
+            </label>
+            <input
+              type={showPassword ? "text" : "password"}
+              required
+              autoComplete="new-password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              className="mb-1 w-full rounded-lg border border-zinc-300 px-3.5 py-2.5 text-sm text-zinc-900 transition-colors focus:border-orange-500 focus:outline-none focus:ring-4 focus:ring-orange-500/15 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-50"
+            />
+            {fieldErrors.confirmPassword && (
+              <p className="mb-3 text-xs text-red-600 dark:text-red-400">{fieldErrors.confirmPassword}</p>
+            )}
+
+            <p className="mb-4 mt-3 text-xs text-zinc-400 dark:text-zinc-500">
+              New accounts start as a requester. An admin can change your role afterward.
+            </p>
+
+            {error && (
+              <p className="mb-4 text-sm text-red-600 dark:text-red-400" role="alert">
+                {error}
+              </p>
+            )}
+
+            <button
+              type="submit"
+              disabled={submitting}
+              className="mb-3 w-full rounded-lg bg-orange-600 px-4 py-2.5 text-sm font-semibold text-white transition-all duration-150 hover:bg-orange-500 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50 disabled:active:scale-100"
+            >
+              {submitting ? "Creating account..." : "Create account"}
+            </button>
+
+            <button
+              type="button"
+              onClick={() => switchMode("signin")}
+              className="w-full text-center text-sm text-zinc-500 dark:text-zinc-400"
+            >
+              Already have an account?{" "}
+              <span className="font-medium text-orange-600 hover:underline dark:text-orange-400">Sign in</span>
             </button>
           </form>
         )}

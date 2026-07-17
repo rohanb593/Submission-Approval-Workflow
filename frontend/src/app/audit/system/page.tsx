@@ -20,12 +20,14 @@ const PAGE_SIZE = 20;
 
 const EVENT_OPTIONS = [
   { label: "All event types", value: "" },
+  { label: "User signed up", value: "user.signed_up" },
   { label: "User created", value: "user.created" },
   { label: "Role changed", value: "user.role_changed" },
   { label: "User deleted", value: "user.deleted" },
 ];
 
 const EVENT_STYLES: Record<string, string> = {
+  "user.signed_up": "bg-blue-100 text-blue-700 dark:bg-blue-950 dark:text-blue-300",
   "user.created": "bg-green-100 text-green-700 dark:bg-green-950 dark:text-green-300",
   "user.role_changed": "bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300",
   "user.deleted": "bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-300",

@@ -180,6 +180,17 @@ export function login(email: string, password: string) {
   });
 }
 
+// signup always creates a "requester" account - there's no way to request a
+// different role from this public, unauthenticated endpoint. It returns the
+// created account, not a session; callers should follow up with login() to
+// go through the same (possibly 2FA-gated) sign-in flow as any other user.
+export function signup(email: string, password: string) {
+  return request<User>("/auth/signup", {
+    method: "POST",
+    body: { email, password },
+  });
+}
+
 export function verifyLoginCode(challengeId: string, code: string) {
   return request<{ token: string; user: User }>("/auth/login/verify", {
     method: "POST",

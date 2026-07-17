@@ -406,6 +406,10 @@ func (s *Service) Transition(ctx context.Context, id uuid.UUID, actorID uuid.UUI
 		return nil, err
 	}
 	s.invalidateCaches(ctx, &result)
+	// Bumps the admin-only Submission Audit view's cache - this is the only
+	// place an AuditLogEntry row gets written. Must match
+	// submissionAuditVersionKey in internal/httpapi/audit_handlers.go.
+	s.redis.Incr(ctx, "cache:v:audit:submissions")
 	// Email delivery happens after the transaction commits: it's an
 	// outbound network call, and the status change (plus its in-app
 	// Notification row) must not be held hostage - or rolled back - by a

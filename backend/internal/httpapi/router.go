@@ -46,6 +46,7 @@ func NewRouter(db *gorm.DB, redisClient *redis.Client, jwtSecret string, corsOri
 
 	r.Post("/auth/login", h.login)
 	r.Post("/auth/login/verify", h.verifyLogin)
+	r.Post("/auth/signup", h.signup)
 
 	r.Route("/auth/logout", func(r chi.Router) {
 		r.Use(RequireAuth(jwtSecret))

@@ -250,7 +250,9 @@ func (h *handlers) recordSystemAuditEvent(ctx context.Context, actorID uuid.UUID
 	}
 	if err := h.db.WithContext(ctx).Create(&entry).Error; err != nil {
 		log.Printf("system audit log: failed to record %s event: %v", event, err)
+		return
 	}
+	h.redis.Incr(ctx, systemAuditVersionKey)
 }
 
 func isUniqueViolation(err error) bool {

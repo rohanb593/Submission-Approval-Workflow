@@ -16,6 +16,7 @@ import (
 
 	"github.com/rohanb2005uk/submission-approval-workflow/backend/internal/auth"
 	"github.com/rohanb2005uk/submission-approval-workflow/backend/internal/models"
+	"github.com/rohanb2005uk/submission-approval-workflow/backend/internal/workflow"
 )
 
 type loginRequest struct {
@@ -307,7 +308,9 @@ func (h *handlers) recordSessionEvent(
 	}
 	if err := h.db.WithContext(ctx).Create(&entry).Error; err != nil {
 		log.Printf("session log: failed to record %s event: %v", event, err)
+		return
 	}
+	h.redis.Incr(ctx, sessionAuditVersionKey)
 }
 
 // logout records that the authenticated caller ended their session. The
@@ -324,4 +327,94 @@ func (h *handlers) logout(w http.ResponseWriter, r *http.Request) {
 
 	h.recordSessionEvent(r.Context(), &user.ID, user.Email, user.Role, "logout", true, r)
 	writeJSON(w, http.StatusNoContent, nil)
+}
+
+type signupRequest struct {
+	Email    string `json:"email"`
+	Password string `json:"password"`
+}
+
+// signupRateLimitKey namespaces the signup-attempt counter for one IP.
+func signupRateLimitKey(ip string) string {
+	return "ratelimit:signup:" + ip
+}
+
+// signup lets anyone create their own account - always as a requester, the
+// only role a public, unauthenticated caller can ever grant themselves.
+// Reviewer/admin accounts still require an existing admin (see createUser).
+// IP-rate-limited the same way login is, since - unlike every other write
+// endpoint in this API - it has no auth in front of it at all.
+func (h *handlers) signup(w http.ResponseWriter, r *http.Request) {
+	var req signupRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, "invalid JSON body")
+		return
+	}
+
+	ctx := r.Context()
+	ip := clientIP(r)
+	rateLimitKey := signupRateLimitKey(ip)
+
+	attempts, err := h.redis.Get(ctx, rateLimitKey).Int()
+	if err != nil && !errors.Is(err, redis.Nil) {
+		log.Printf("checking signup rate limit for %s: %v", ip, err)
+	}
+	if attempts >= maxSignupAttempts {
+		writeError(w, http.StatusTooManyRequests, "too many signup attempts - try again later")
+		return
+	}
+
+	fields := map[string]string{}
+	email := strings.TrimSpace(req.Email)
+	if email == "" {
+		fields["email"] = "email is required"
+	}
+	if len(req.Password) < 8 {
+		fields["password"] = "password must be at least 8 characters"
+	}
+	if len(fields) > 0 {
+		h.registerFailedSignup(ctx, rateLimitKey)
+		writeValidationError(w, fields)
+		return
+	}
+
+	hash, err := auth.HashPassword(req.Password)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "hashing password")
+		return
+	}
+
+	user := models.User{Email: email, PasswordHash: hash, Role: string(workflow.RoleRequester)}
+	if err := h.db.WithContext(ctx).Create(&user).Error; err != nil {
+		if isUniqueViolation(err) {
+			h.registerFailedSignup(ctx, rateLimitKey)
+			writeValidationError(w, map[string]string{"email": "an account with this email already exists"})
+			return
+		}
+		writeError(w, http.StatusInternalServerError, "creating account")
+		return
+	}
+	h.invalidateUsersCache(ctx)
+	h.recordSystemAuditEvent(ctx, user.ID, "user.signed_up", "USER", user.Email)
+
+	writeJSON(w, http.StatusCreated, userResponse{
+		ID:    user.ID.String(),
+		Email: user.Email,
+		Role:  user.Role,
+	})
+}
+
+// registerFailedSignup mirrors registerFailedLogin's counter-with-expiry
+// pattern for the separate signup rate limit.
+func (h *handlers) registerFailedSignup(ctx context.Context, key string) {
+	n, err := h.redis.Incr(ctx, key).Result()
+	if err != nil {
+		log.Printf("recording failed signup for %s: %v", key, err)
+		return
+	}
+	if n == 1 {
+		if err := h.redis.Expire(ctx, key, signupRateLimitWindow).Err(); err != nil {
+			log.Printf("setting signup rate limit expiry for %s: %v", key, err)
+		}
+	}
 }

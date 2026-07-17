@@ -1,6 +1,8 @@
 package httpapi
 
 import (
+	"encoding/json"
+	"fmt"
 	"net/http"
 	"strings"
 	"time"
@@ -9,6 +11,31 @@ import (
 
 	"github.com/rohanb2005uk/submission-approval-workflow/backend/internal/models"
 )
+
+// auditCacheTTL bounds how long a cached audit page can outlive its version
+// counter - a garbage-collection safety net, not the primary invalidation
+// (that's the version bump at each write site: applications.Service.Transition
+// for submission audit, recordSessionEvent, and recordSystemAuditEvent).
+const auditCacheTTL = 5 * time.Minute
+
+// submissionAuditVersionKey must match the identical constant of the same
+// name in internal/applications/service.go - duplicated rather than shared
+// because bumping it happens from that package, not this one.
+const submissionAuditVersionKey = "cache:v:audit:submissions"
+const sessionAuditVersionKey = "cache:v:audit:sessions"
+const systemAuditVersionKey = "cache:v:audit:system"
+
+func submissionAuditCacheKey(version int64, search string, page, pageSize int) string {
+	return fmt.Sprintf("cache:audit:submissions:v%d:%s:p%d:z%d", version, search, page, pageSize)
+}
+
+func sessionAuditCacheKey(version int64, search, event, result string, page, pageSize int) string {
+	return fmt.Sprintf("cache:audit:sessions:v%d:%s:%s:%s:p%d:z%d", version, search, event, result, page, pageSize)
+}
+
+func systemAuditCacheKey(version int64, search, event string, page, pageSize int) string {
+	return fmt.Sprintf("cache:audit:system:v%d:%s:%s:p%d:z%d", version, search, event, page, pageSize)
+}
 
 type submissionAuditResponse struct {
 	ID               string    `json:"id"`
@@ -36,6 +63,7 @@ type submissionAuditListResponse struct {
 // joins - not just Preload - so search can filter on the actor's email and
 // the application's title in the same query that computes the total count.
 func (h *handlers) listSubmissionAudit(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
 	search := strings.TrimSpace(r.URL.Query().Get("search"))
 	page := parsePositiveInt(r.URL.Query().Get("page"), 1)
 	pageSize := parsePositiveInt(r.URL.Query().Get("page_size"), defaultPageSize)
@@ -43,8 +71,18 @@ func (h *handlers) listSubmissionAudit(w http.ResponseWriter, r *http.Request) {
 		pageSize = maxPageSize
 	}
 
+	version, _ := h.redis.Get(ctx, submissionAuditVersionKey).Int64()
+	cacheKey := submissionAuditCacheKey(version, search, page, pageSize)
+	if cached, err := h.redis.Get(ctx, cacheKey).Bytes(); err == nil {
+		var resp submissionAuditListResponse
+		if jsonErr := json.Unmarshal(cached, &resp); jsonErr == nil {
+			writeJSON(w, http.StatusOK, resp)
+			return
+		}
+	}
+
 	baseQuery := func() *gorm.DB {
-		q := h.db.WithContext(r.Context()).
+		q := h.db.WithContext(ctx).
 			Model(&models.AuditLogEntry{}).
 			Joins("JOIN users ON users.id = application_audit_log.actor_id").
 			Joins("JOIN applications ON applications.id = application_audit_log.application_id")
@@ -91,9 +129,11 @@ func (h *handlers) listSubmissionAudit(w http.ResponseWriter, r *http.Request) {
 			CreatedAt:        e.CreatedAt,
 		}
 	}
-	writeJSON(w, http.StatusOK, submissionAuditListResponse{
-		Entries: resp, Total: total, Page: page, PageSize: pageSize,
-	})
+	result := submissionAuditListResponse{Entries: resp, Total: total, Page: page, PageSize: pageSize}
+	if encoded, err := json.Marshal(result); err == nil {
+		h.redis.Set(ctx, cacheKey, encoded, auditCacheTTL)
+	}
+	writeJSON(w, http.StatusOK, result)
 }
 
 type sessionAuditResponse struct {
@@ -120,6 +160,7 @@ type sessionAuditListResponse struct {
 // Audit view. event and result are optional exact-match filters on top of
 // the free-text search (which matches email or IP).
 func (h *handlers) listSessionAudit(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
 	search := strings.TrimSpace(r.URL.Query().Get("search"))
 	eventFilter := r.URL.Query().Get("event")
 	resultFilter := r.URL.Query().Get("result")
@@ -129,8 +170,18 @@ func (h *handlers) listSessionAudit(w http.ResponseWriter, r *http.Request) {
 		pageSize = maxPageSize
 	}
 
+	version, _ := h.redis.Get(ctx, sessionAuditVersionKey).Int64()
+	cacheKey := sessionAuditCacheKey(version, search, eventFilter, resultFilter, page, pageSize)
+	if cached, err := h.redis.Get(ctx, cacheKey).Bytes(); err == nil {
+		var resp sessionAuditListResponse
+		if jsonErr := json.Unmarshal(cached, &resp); jsonErr == nil {
+			writeJSON(w, http.StatusOK, resp)
+			return
+		}
+	}
+
 	baseQuery := func() *gorm.DB {
-		q := h.db.WithContext(r.Context()).Model(&models.SessionLogEntry{})
+		q := h.db.WithContext(ctx).Model(&models.SessionLogEntry{})
 		if search != "" {
 			pattern := "%" + search + "%"
 			q = q.Where("email ILIKE ? OR ip_address ILIKE ?", pattern, pattern)
@@ -183,9 +234,11 @@ func (h *handlers) listSessionAudit(w http.ResponseWriter, r *http.Request) {
 			CreatedAt: e.CreatedAt,
 		}
 	}
-	writeJSON(w, http.StatusOK, sessionAuditListResponse{
-		Entries: resp, Total: total, Page: page, PageSize: pageSize,
-	})
+	result := sessionAuditListResponse{Entries: resp, Total: total, Page: page, PageSize: pageSize}
+	if encoded, err := json.Marshal(result); err == nil {
+		h.redis.Set(ctx, cacheKey, encoded, auditCacheTTL)
+	}
+	writeJSON(w, http.StatusOK, result)
 }
 
 type systemAuditResponse struct {
@@ -211,6 +264,7 @@ type systemAuditListResponse struct {
 // row is by definition an action that already succeeded (see
 // recordSystemAuditEvent, called only after the underlying DB write commits).
 func (h *handlers) listSystemAudit(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
 	search := strings.TrimSpace(r.URL.Query().Get("search"))
 	eventFilter := r.URL.Query().Get("event")
 	page := parsePositiveInt(r.URL.Query().Get("page"), 1)
@@ -219,8 +273,18 @@ func (h *handlers) listSystemAudit(w http.ResponseWriter, r *http.Request) {
 		pageSize = maxPageSize
 	}
 
+	version, _ := h.redis.Get(ctx, systemAuditVersionKey).Int64()
+	cacheKey := systemAuditCacheKey(version, search, eventFilter, page, pageSize)
+	if cached, err := h.redis.Get(ctx, cacheKey).Bytes(); err == nil {
+		var resp systemAuditListResponse
+		if jsonErr := json.Unmarshal(cached, &resp); jsonErr == nil {
+			writeJSON(w, http.StatusOK, resp)
+			return
+		}
+	}
+
 	baseQuery := func() *gorm.DB {
-		q := h.db.WithContext(r.Context()).
+		q := h.db.WithContext(ctx).
 			Model(&models.SystemAuditLogEntry{}).
 			Joins("JOIN users ON users.id = system_audit_log.actor_id")
 		if search != "" {
@@ -266,7 +330,9 @@ func (h *handlers) listSystemAudit(w http.ResponseWriter, r *http.Request) {
 			CreatedAt:     e.CreatedAt,
 		}
 	}
-	writeJSON(w, http.StatusOK, systemAuditListResponse{
-		Entries: resp, Total: total, Page: page, PageSize: pageSize,
-	})
+	result := systemAuditListResponse{Entries: resp, Total: total, Page: page, PageSize: pageSize}
+	if encoded, err := json.Marshal(result); err == nil {
+		h.redis.Set(ctx, cacheKey, encoded, auditCacheTTL)
+	}
+	writeJSON(w, http.StatusOK, result)
 }
