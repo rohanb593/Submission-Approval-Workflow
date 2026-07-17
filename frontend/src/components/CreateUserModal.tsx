@@ -50,7 +50,7 @@ export function CreateUserModal({
       >
         <div className="flex items-start justify-between gap-4">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-widest text-indigo-600 dark:text-indigo-400">
+            <p className="text-xs font-semibold uppercase tracking-widest text-orange-600 dark:text-orange-400">
               User Management
             </p>
             <h2 className="mt-1 text-lg font-bold text-zinc-900 dark:text-zinc-50">New User</h2>
@@ -73,7 +73,7 @@ export function CreateUserModal({
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-50"
+              className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-orange-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-50"
             />
             {fieldErrors.email && (
               <p className="mt-1 text-xs text-red-600 dark:text-red-400">{fieldErrors.email}</p>
@@ -89,7 +89,7 @@ export function CreateUserModal({
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-50"
+              className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-orange-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-50"
             />
             {fieldErrors.password && (
               <p className="mt-1 text-xs text-red-600 dark:text-red-400">{fieldErrors.password}</p>
@@ -103,7 +103,7 @@ export function CreateUserModal({
             <select
               value={role}
               onChange={(e) => setRole(e.target.value as Role)}
-              className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm capitalize text-zinc-900 focus:border-indigo-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-50"
+              className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm capitalize text-zinc-900 focus:border-orange-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-50"
             >
               {ROLES.map((r) => (
                 <option key={r} value={r}>
@@ -133,7 +133,7 @@ export function CreateUserModal({
             <button
               type="submit"
               disabled={isSubmitting}
-              className="rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
+              className="rounded-md bg-orange-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-orange-500 disabled:opacity-50"
             >
               {isSubmitting ? "Creating..." : "Create User"}
             </button>

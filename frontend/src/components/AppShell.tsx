@@ -44,12 +44,17 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   return (
     <div className="flex min-h-screen flex-1">
-      <aside className="flex w-60 shrink-0 flex-col bg-slate-950 text-slate-100">
-        <div className="px-5 py-6">
-          <p className="text-xs font-semibold uppercase tracking-widest text-indigo-400">
-            Submission Workflow
-          </p>
-          <p className="mt-1 text-lg font-bold text-white">Approvals</p>
+      <aside className="flex w-60 shrink-0 flex-col bg-blue-950 text-zinc-100">
+        <div className="flex items-center gap-3 px-5 py-6">
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-orange-500 text-sm font-black text-blue-950">
+            A
+          </span>
+          <div>
+            <p className="text-[10px] font-semibold uppercase tracking-widest text-orange-400">
+              Submission Workflow
+            </p>
+            <p className="text-base font-bold text-white">Approvals</p>
+          </div>
         </div>
 
         <nav className="flex-1 px-3">
@@ -61,8 +66,8 @@ export function AppShell({ children }: { children: ReactNode }) {
                 href={item.href}
                 className={`mb-1 block rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
                   active
-                    ? "bg-indigo-600 text-white"
-                    : "text-slate-300 hover:bg-slate-800 hover:text-white"
+                    ? "bg-orange-600 text-white"
+                    : "text-blue-200 hover:bg-blue-900 hover:text-white"
                 }`}
               >
                 {item.label}
@@ -72,19 +77,19 @@ export function AppShell({ children }: { children: ReactNode }) {
         </nav>
 
         {user && (
-          <div className="border-t border-slate-800 px-4 py-4">
+          <div className="border-t border-blue-900 px-4 py-4">
             <div className="mb-3 flex items-center gap-3">
-              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-indigo-600 text-xs font-semibold text-white">
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-orange-600 text-xs font-semibold text-white">
                 {initials(user.email)}
               </span>
               <div className="min-w-0">
                 <p className="truncate text-sm font-medium text-white">{user.email}</p>
-                <p className="text-xs capitalize text-slate-400">{user.role}</p>
+                <p className="text-xs capitalize text-blue-300">{user.role}</p>
               </div>
             </div>
             <button
               onClick={handleLogout}
-              className="w-full rounded-md border border-slate-700 px-3 py-1.5 text-sm font-medium text-slate-200 transition-colors hover:bg-slate-800"
+              className="w-full rounded-md border border-blue-800 px-3 py-1.5 text-sm font-medium text-blue-100 transition-colors hover:bg-blue-900"
             >
               Log out
             </button>

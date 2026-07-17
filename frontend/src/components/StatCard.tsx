@@ -1,11 +1,11 @@
 interface StatCardProps {
   label: string;
   value: number;
-  accent?: "indigo" | "amber" | "green" | "red" | "zinc";
+  accent?: "orange" | "amber" | "green" | "red" | "zinc";
 }
 
 const ACCENT_BORDER: Record<NonNullable<StatCardProps["accent"]>, string> = {
-  indigo: "border-l-indigo-500",
+  orange: "border-l-orange-500",
   amber: "border-l-amber-500",
   green: "border-l-green-500",
   red: "border-l-red-500",

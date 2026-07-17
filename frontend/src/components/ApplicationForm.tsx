@@ -77,7 +77,7 @@ export function ApplicationForm({
           type="text"
           value={values.title}
           onChange={(e) => setField("title", e.target.value)}
-          className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-zinc-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-50"
+          className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-orange-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-50"
         />
         {fieldErrors.title && (
           <p className="mt-1 text-sm text-red-600 dark:text-red-400">{fieldErrors.title}</p>
@@ -91,7 +91,7 @@ export function ApplicationForm({
         <select
           value={values.category}
           onChange={(e) => setField("category", e.target.value)}
-          className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-zinc-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-50"
+          className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-orange-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-50"
         >
           <option value="">Select a category&hellip;</option>
           {CATEGORIES.map((c) => (
@@ -113,7 +113,7 @@ export function ApplicationForm({
           value={values.description}
           onChange={(e) => setField("description", e.target.value)}
           rows={4}
-          className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-zinc-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-50"
+          className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-orange-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-50"
         />
         {fieldErrors.description && (
           <p className="mt-1 text-sm text-red-600 dark:text-red-400">
@@ -132,7 +132,7 @@ export function ApplicationForm({
           min="0"
           value={values.amount}
           onChange={(e) => setField("amount", e.target.value)}
-          className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-zinc-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-50"
+          className="w-full rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-orange-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-50"
         />
         {fieldErrors.amount && (
           <p className="mt-1 text-sm text-red-600 dark:text-red-400">{fieldErrors.amount}</p>
@@ -148,7 +148,7 @@ export function ApplicationForm({
       <button
         type="submit"
         disabled={submitting}
-        className="self-start rounded-md bg-zinc-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-zinc-700 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-zinc-100 dark:text-zinc-900 dark:hover:bg-zinc-300"
+        className="self-start rounded-md bg-orange-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-orange-500 disabled:cursor-not-allowed disabled:opacity-50"
       >
         {submitting ? "Saving..." : submitLabel}
       </button>

@@ -105,7 +105,7 @@ export default function ApplicantDashboard() {
           action={
             <Link
               href="/applications/new"
-              className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-indigo-500"
+              className="rounded-md bg-orange-600 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-orange-500"
             >
               New Application
             </Link>
@@ -115,7 +115,7 @@ export default function ApplicantDashboard() {
         <div className="mb-8 grid grid-cols-2 gap-4 sm:grid-cols-4">
           <StatCard label="Total" value={stats.total} accent="zinc" />
           <StatCard label="Draft" value={stats.draft} accent="amber" />
-          <StatCard label="In Review" value={stats.inReview} accent="indigo" />
+          <StatCard label="In Review" value={stats.inReview} accent="orange" />
           <StatCard label="Approved" value={stats.approved} accent="green" />
         </div>
 

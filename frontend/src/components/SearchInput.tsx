@@ -39,7 +39,7 @@ export function SearchInput({ value, onChange, placeholder }: SearchInputProps) 
         value={draft}
         onChange={(e) => setDraft(e.target.value)}
         placeholder={placeholder ?? "Search..."}
-        className="w-full rounded-md border border-zinc-300 py-2 pl-9 pr-3 text-sm text-zinc-900 focus:border-indigo-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-50"
+        className="w-full rounded-md border border-zinc-300 py-2 pl-9 pr-3 text-sm text-zinc-900 focus:border-orange-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-50"
       />
     </div>
   );

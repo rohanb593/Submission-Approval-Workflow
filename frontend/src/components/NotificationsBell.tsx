@@ -107,7 +107,7 @@ export function NotificationsBell() {
             {unreadCount > 0 && (
               <button
                 onClick={handleMarkAllRead}
-                className="text-xs font-medium text-indigo-600 hover:underline dark:text-indigo-400"
+                className="text-xs font-medium text-orange-600 hover:underline dark:text-orange-400"
               >
                 Mark all read
               </button>
@@ -135,7 +135,7 @@ export function NotificationsBell() {
                     >
                       <div className="flex items-start gap-2">
                         {!n.read && (
-                          <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-indigo-600" />
+                          <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-orange-600" />
                         )}
                         <div className={n.read ? "" : "flex-1"}>
                           <p>{n.message}</p>

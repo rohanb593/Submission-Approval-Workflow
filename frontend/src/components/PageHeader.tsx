@@ -11,7 +11,7 @@ export function PageHeader({ eyebrow, title, subtitle, action }: PageHeaderProps
   return (
     <div className="mb-8 flex items-start justify-between gap-4">
       <div>
-        <p className="text-xs font-semibold uppercase tracking-widest text-indigo-600 dark:text-indigo-400">
+        <p className="text-xs font-semibold uppercase tracking-widest text-orange-600 dark:text-orange-400">
           {eyebrow}
         </p>
         <h1 className="mt-1 text-2xl font-bold tracking-tight text-zinc-900 dark:text-zinc-50">

@@ -39,7 +39,7 @@ export function ActivityDetailModal({
       >
         <div className="flex items-start justify-between gap-4">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-widest text-indigo-600 dark:text-indigo-400">
+            <p className="text-xs font-semibold uppercase tracking-widest text-orange-600 dark:text-orange-400">
               Activity Audit
             </p>
             <h2 className="mt-1 font-mono text-lg font-bold text-zinc-900 dark:text-zinc-50">
@@ -79,7 +79,7 @@ export function ActivityDetailModal({
           <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
             Metadata
           </p>
-          <pre className="overflow-x-auto rounded-md bg-slate-950 p-3 text-xs text-slate-100">
+          <pre className="overflow-x-auto rounded-md bg-blue-950 p-3 text-xs text-blue-100">
             {metadata}
           </pre>
         </div>

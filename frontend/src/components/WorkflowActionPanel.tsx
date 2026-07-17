@@ -96,7 +96,7 @@ export function WorkflowActionPanel({
         onChange={(e) => setComment(e.target.value)}
         rows={3}
         placeholder="Required for Reject / Return for Changes"
-        className="mb-4 w-full rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-50"
+        className="mb-4 w-full rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-orange-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-50"
       />
 
       <div className="flex flex-col gap-2">
@@ -105,7 +105,7 @@ export function WorkflowActionPanel({
             key={spec.action}
             onClick={() => handleClick(spec)}
             disabled={submitting !== null}
-            className="rounded-md bg-slate-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-indigo-600 dark:hover:bg-indigo-500"
+            className="rounded-md bg-blue-900 px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-orange-600 dark:hover:bg-orange-500"
           >
             {submitting === spec.action ? "Submitting..." : spec.label}
           </button>

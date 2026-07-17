@@ -111,7 +111,7 @@ export default function UserManagementPage() {
           action={
             <button
               onClick={() => setIsCreating(true)}
-              className="rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-500"
+              className="rounded-md bg-orange-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-orange-500"
             >
               New User
             </button>
@@ -165,7 +165,7 @@ export default function UserManagementPage() {
                           value={u.role}
                           disabled={isSelf || isPending}
                           onChange={(e) => handleRoleChange(u.id, e.target.value as Role)}
-                          className="rounded-md border border-zinc-300 px-2 py-1 text-sm capitalize text-zinc-900 focus:border-indigo-500 focus:outline-none disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-50"
+                          className="rounded-md border border-zinc-300 px-2 py-1 text-sm capitalize text-zinc-900 focus:border-orange-500 focus:outline-none disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-50"
                         >
                           {ROLES.map((r) => (
                             <option key={r} value={r}>

@@ -71,7 +71,7 @@ export default function ActivityAuditPage() {
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search audit events, actors, IPs..."
-          className="mb-6 w-full max-w-md rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-indigo-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-50"
+          className="mb-6 w-full max-w-md rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-900 focus:border-orange-500 focus:outline-none dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-50"
         />
 
         {state.status === "loading" && (

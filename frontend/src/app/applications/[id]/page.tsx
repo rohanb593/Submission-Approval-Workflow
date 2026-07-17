@@ -192,14 +192,14 @@ export default function ApplicationDetailPage() {
                   </button>
                 </div>
               ) : (
-                <div className="mt-6 rounded-md border border-indigo-100 bg-indigo-50/60 p-4 dark:border-indigo-900 dark:bg-indigo-950/30">
+                <div className="mt-6 rounded-md border border-orange-100 bg-orange-50/60 p-4 dark:border-orange-900 dark:bg-orange-950/30">
                   <h2 className="text-sm font-semibold text-zinc-900 dark:text-zinc-50">
                     Application Details
                   </h2>
                   <p className="mt-0.5 text-xs text-zinc-500 dark:text-zinc-400">
                     Structured information submitted for this request.
                   </p>
-                  <div className="mt-3 grid grid-cols-2 gap-4 border-t border-indigo-100 pt-3 dark:border-indigo-900">
+                  <div className="mt-3 grid grid-cols-2 gap-4 border-t border-orange-100 pt-3 dark:border-orange-900">
                     <div>
                       <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
                         Category
@@ -261,7 +261,7 @@ export default function ApplicationDetailPage() {
                   <div className="flex flex-col gap-6">
                     {revisions.map((revision) => (
                       <div key={revision.number}>
-                        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-indigo-600 dark:text-indigo-400">
+                        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-orange-600 dark:text-orange-400">
                           Revision {revision.number}
                         </p>
                         <ul className="flex flex-col gap-4">
@@ -272,7 +272,7 @@ export default function ApplicationDetailPage() {
                               <li
                                 key={entry.id}
                                 className={`border-l-2 pl-3 ${
-                                  wasReturned ? "border-amber-500" : "border-indigo-500"
+                                  wasReturned ? "border-amber-500" : "border-orange-500"
                                 }`}
                               >
                                 <div className="flex items-center gap-2">
