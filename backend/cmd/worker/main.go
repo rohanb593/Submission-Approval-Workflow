@@ -8,11 +8,11 @@ import (
 	"context"
 	"encoding/json"
 	"log"
+	"os"
 	"time"
 
 	"github.com/joho/godotenv"
 
-	"github.com/rohanb2005uk/submission-approval-workflow/backend/internal/config"
 	"github.com/rohanb2005uk/submission-approval-workflow/backend/internal/mailer"
 	"github.com/rohanb2005uk/submission-approval-workflow/backend/internal/queue"
 )
@@ -22,12 +22,14 @@ func main() {
 		log.Println("no .env file found, relying on process environment")
 	}
 
-	cfg, err := config.Load()
-	if err != nil {
-		log.Fatalf("loading config: %v", err)
+	rabbitMQURL := getEnv("RABBITMQ_URL", "amqp://guest:guest@localhost:5672/")
+	resendAPIKey := os.Getenv("RESEND_API_KEY")
+	emailFrom := getEnv("EMAIL_FROM", "Submission Approval Workflow <onboarding@resend.dev>")
+	if resendAPIKey == "" {
+		log.Fatalf("RESEND_API_KEY is required")
 	}
 
-	conn, ch, err := queue.Connect(cfg.RabbitMQURL)
+	conn, ch, err := queue.Connect(rabbitMQURL)
 	if err != nil {
 		log.Fatalf("connecting to rabbitmq: %v", err)
 	}
@@ -36,8 +38,8 @@ func main() {
 	log.Println("connected to rabbitmq successfully")
 
 	mailSender := mailer.New(mailer.Config{
-		APIKey: cfg.ResendAPIKey,
-		From:   cfg.EmailFrom,
+		APIKey: resendAPIKey,
+		From:   emailFrom,
 	})
 
 	publisher := queue.NewPublisher(ch)
@@ -84,4 +86,11 @@ func main() {
 		log.Printf("sent notification email to %s", msg.To)
 		d.Ack(false)
 	}
+}
+
+func getEnv(key, fallback string) string {
+	if v := os.Getenv(key); v != "" {
+		return v
+	}
+	return fallback
 }
