@@ -17,8 +17,8 @@ import (
 	"github.com/redis/go-redis/v9"
 	"gorm.io/gorm"
 
-	"github.com/rohanb2005uk/submission-approval-workflow/backend/internal/mailer"
 	"github.com/rohanb2005uk/submission-approval-workflow/backend/internal/models"
+	"github.com/rohanb2005uk/submission-approval-workflow/backend/internal/queue"
 	"github.com/rohanb2005uk/submission-approval-workflow/backend/internal/workflow"
 )
 
@@ -99,15 +99,17 @@ func validate(title, category string) error {
 type Service struct {
 	db          *gorm.DB
 	redis       *redis.Client
-	mailer      mailer.Mailer
+	queue       *queue.Publisher
 	notifyEmail bool
 }
 
-// New builds the applications Service. mailSender/notifyEmail drive
+// New builds the applications Service. publisher/notifyEmail drive
 // status-change email notifications (see notifyStatusChange); an in-app
-// Notification row is always created regardless of notifyEmail.
-func New(db *gorm.DB, redisClient *redis.Client, mailSender mailer.Mailer, notifyEmail bool) *Service {
-	return &Service{db: db, redis: redisClient, mailer: mailSender, notifyEmail: notifyEmail}
+// Notification row is always created regardless of notifyEmail. publisher
+// may be nil, in which case email notifications are skipped even if
+// notifyEmail is true - mirrors the previous nil-mailer behavior.
+func New(db *gorm.DB, redisClient *redis.Client, publisher *queue.Publisher, notifyEmail bool) *Service {
+	return &Service{db: db, redis: redisClient, queue: publisher, notifyEmail: notifyEmail}
 }
 
 // cachedApplicationDetail is what Get() stores in Redis: the application
@@ -472,17 +474,24 @@ func statusChangeMessage(title string, action workflow.Action, newStatus workflo
 	}
 }
 
-// sendNotificationEmails best-effort emails each notification target. A
-// mailer failure - or email notifications simply being disabled - never
-// fails the call: the transition already committed and the in-app
-// Notification row is the row of record, email is a delivery bonus.
+// sendNotificationEmails best-effort publishes each notification target as
+// an email job onto RabbitMQ; the worker process (cmd/worker) is what
+// actually calls the mail provider. A publish failure - or email
+// notifications simply being disabled - never fails the call: the
+// transition already committed and the in-app Notification row is the row
+// of record, email is a delivery bonus.
 func (s *Service) sendNotificationEmails(targets []notificationTarget) {
-	if !s.notifyEmail || s.mailer == nil {
+	if !s.notifyEmail || s.queue == nil {
 		return
 	}
 	for _, target := range targets {
-		if err := s.mailer.Send(target.Recipient.Email, "Submission status update", target.Message); err != nil {
-			log.Printf("sending notification email to %s: %v", target.Recipient.Email, err)
+		msg := queue.NotificationEmail{
+			To:      target.Recipient.Email,
+			Subject: "Submission status update",
+			Body:    target.Message,
+		}
+		if err := s.queue.PublishNotificationEmail(context.Background(), msg); err != nil {
+			log.Printf("publishing notification email for %s: %v", target.Recipient.Email, err)
 		}
 	}
 }

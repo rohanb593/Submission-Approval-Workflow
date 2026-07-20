@@ -10,6 +10,7 @@ type Config struct {
 	Port        string
 	DatabaseURL string
 	RedisURL    string
+	RabbitMQURL string
 	JWTSecret   string
 	// CORSOrigin is a comma-separated list of allowed browser origins - see
 	// httpapi.CORS for why this isn't a single value.
@@ -32,6 +33,7 @@ func Load() (Config, error) {
 		Port:         getEnv("PORT", "8080"),
 		DatabaseURL:  os.Getenv("DATABASE_URL"),
 		RedisURL:     getEnv("REDIS_URL", "redis://localhost:6379"),
+		RabbitMQURL:  getEnv("RABBITMQ_URL", "amqp://guest:guest@localhost:5672/"),
 		JWTSecret:    os.Getenv("JWT_SECRET"),
 		CORSOrigin:   getEnv("CORS_ORIGIN", "http://localhost:3000"),
 		Enable2FA:    getEnv("ENABLE_2FA", "false") == "true",

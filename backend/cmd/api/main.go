@@ -10,6 +10,7 @@ import (
 	"github.com/rohanb2005uk/submission-approval-workflow/backend/internal/db"
 	"github.com/rohanb2005uk/submission-approval-workflow/backend/internal/httpapi"
 	"github.com/rohanb2005uk/submission-approval-workflow/backend/internal/mailer"
+	"github.com/rohanb2005uk/submission-approval-workflow/backend/internal/queue"
 	"github.com/rohanb2005uk/submission-approval-workflow/backend/internal/redis"
 )
 
@@ -40,12 +41,21 @@ func main() {
 	}
 	log.Println("connected to redis successfully")
 
+	rabbitConn, rabbitCh, err := queue.Connect(cfg.RabbitMQURL)
+	if err != nil {
+		log.Fatalf("connecting to rabbitmq: %v", err)
+	}
+	defer rabbitConn.Close()
+	defer rabbitCh.Close()
+	log.Println("connected to rabbitmq successfully")
+	publisher := queue.NewPublisher(rabbitCh)
+
 	mailSender := mailer.New(mailer.Config{
 		APIKey: cfg.ResendAPIKey,
 		From:   cfg.EmailFrom,
 	})
 
-	router := httpapi.NewRouter(conn, redisClient, cfg.JWTSecret, cfg.CORSOrigin, mailSender, cfg.Enable2FA, cfg.NotifyEmail)
+	router := httpapi.NewRouter(conn, redisClient, publisher, cfg.JWTSecret, cfg.CORSOrigin, mailSender, cfg.Enable2FA, cfg.NotifyEmail)
 
 	log.Printf("listening on :%s", cfg.Port)
 	if err := http.ListenAndServe(":"+cfg.Port, router); err != nil {
